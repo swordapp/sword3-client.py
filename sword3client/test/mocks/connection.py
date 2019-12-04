@@ -4,10 +4,18 @@ from sword3common.test.fixtures.service import ServiceFixtureFactory
 
 import json
 
+
 class MockHttpLayer(HttpLayer):
+    def __init__(self, code=200, body=True):
+        self.code = code
+        self.body = body
+        super(MockHttpLayer, self).__init__()
+
     def get(self, url):
-        body = ServiceFixtureFactory.service_document()
-        return MockHttpResponse(200, json.dumps(body))
+        body = ""
+        if self.body:
+            body = json.dumps(ServiceFixtureFactory.service_document())
+        return MockHttpResponse(self.code, body)
 
 
 class MockHttpResponse(HttpResponse):

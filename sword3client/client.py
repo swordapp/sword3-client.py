@@ -1,4 +1,5 @@
 from sword3client.connection.connection_requests import RequestsHttpLayer
+from sword3client.exceptions import SWORD3WireError, SWORD3AuthenticationError, SWORD3NotFound
 
 from sword3common.models.service import ServiceDocument
 
@@ -14,6 +15,12 @@ class SWORD3Client(object):
         if resp.status_code == 200:
             data = json.loads(resp.body)
             return ServiceDocument(data)
+        elif resp.status_code == 401 or resp.status_code == 403:
+            raise SWORD3AuthenticationError(service_url, resp, "Authentication failed retrieving service document")
+        elif resp.status_code == 404:
+            raise SWORD3NotFound(service_url, resp, "No Service Document found at requested URL")
+        else:
+            raise SWORD3WireError(service_url, resp, "Unexpected status code; unable to retrieve Service Document")
 
     def create_object(self):
         pass
