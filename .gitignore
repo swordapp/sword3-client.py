@@ -1,0 +1,53 @@
+# Local env file
+.env
+env/
+
+.brackets.json
+*.pyc
+*.egg-info/*
+src*
+.Python
+build/*
+dist/*
+tmp/*
+scratch.py
+.coverage
+htmlcov/
+
+# PyCharm and other IntelliJ-based IDE-s and editors' folder:
+.idea
+# vim swap files
+.*.swp
+
+# Logs created while debugging
+*.log
+
+# ipython and jupyter related files
+.ipynb_checkpoints/
+# only ignore jupyter notebooks in the root - we might want to share
+# some around in a subfolder in the future
+/*.ipynb
+
+### OSX template
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
