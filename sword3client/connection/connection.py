@@ -8,7 +8,7 @@ class HttpLayer(object):
     def put(self):
         raise NotImplementedError
 
-    def post(self):
+    def post(self, url, data):
         raise NotImplementedError
 
     def delete(self):

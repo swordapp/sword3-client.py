@@ -4,6 +4,7 @@ from sword3client.exceptions import SWORD3WireError, SWORD3AuthenticationError, 
 from sword3common.models.service import ServiceDocument
 
 import json
+import sys
 
 class SWORD3Client(object):
 
@@ -22,7 +23,24 @@ class SWORD3Client(object):
         else:
             raise SWORD3WireError(service_url, resp, "Unexpected status code; unable to retrieve Service Document")
 
-    def create_object(self):
+    def create_object_with_metadata(self, service, metadata, digest=None, metadata_format=None):
+        # get the service url.  The first argument may be the URL or the ServiceDocument
+        service_url = service
+        if isinstance(service, ServiceDocument):
+            service_url = service.service_url
+
+        body = json.dumps(metadata.data)
+        content_length = sys.getsizeof(body)
+
+        headers = {
+            "Content-Type" : "application/json",
+            "Content-Length" : content_length
+        }
+
+
+        self._http.post(service_url, body)
+
+    def create_object_with_binary(self, service, binary, content_length=None, content_type=None, digest=None, packaging=None):
         pass
 
     def get_object(self):
