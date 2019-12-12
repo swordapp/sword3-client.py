@@ -1,3 +1,5 @@
+from sword3common.models.status import StatusDocument
+
 class DepositResponse(object):
     def __init__(self, status, location, data):
         self._status = status
