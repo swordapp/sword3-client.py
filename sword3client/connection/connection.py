@@ -2,13 +2,13 @@ class HttpLayer(object):
     def __init__(self, auth=None):
         self._auth = auth
 
-    def get(self, url):
+    def get(self, url, headers=None):
         raise NotImplementedError
 
     def put(self):
         raise NotImplementedError
 
-    def post(self, url, data):
+    def post(self, url, data, headers=None):
         raise NotImplementedError
 
     def delete(self):
@@ -22,4 +22,7 @@ class HttpResponse(object):
 
     @property
     def body(self):
+        raise NotImplementedError
+
+    def header(self, header_name):
         raise NotImplementedError

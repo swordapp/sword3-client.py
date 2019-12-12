@@ -11,7 +11,7 @@ class MockHttpLayer(HttpLayer):
         self.body = body
         super(MockHttpLayer, self).__init__()
 
-    def get(self, url):
+    def get(self, url, headers=None):
         body = ""
         if self.body:
             body = json.dumps(ServiceFixtureFactory.service_document())
@@ -30,3 +30,4 @@ class MockHttpResponse(HttpResponse):
     @property
     def body(self):
         return self._body
+    
