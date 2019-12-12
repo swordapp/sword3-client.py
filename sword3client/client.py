@@ -2,9 +2,13 @@ from sword3client.connection.connection_requests import RequestsHttpLayer
 from sword3client.exceptions import SWORD3WireError, SWORD3AuthenticationError, SWORD3NotFound
 
 from sword3common.models.service import ServiceDocument
+from sword3common.lib.disposition import ContentDisposition
+from sword3common import constants
 
 import json
 import sys
+import hashlib
+import base64
 
 class SWORD3Client(object):
 
@@ -32,13 +36,26 @@ class SWORD3Client(object):
         body = json.dumps(metadata.data)
         content_length = sys.getsizeof(body)
 
+        if digest is None:
+            d = hashlib.sha256(body.encode("utf-8"))
+            digest = "{x}={y}".format(x=constants.DIGEST_SHA_256, y=base64.b64encode(d.digest()))
+
+        if metadata_format is None:
+            metadata_format = constants.URI_METADATA
+
         headers = {
             "Content-Type" : "application/json",
-            "Content-Length" : content_length
+            "Content-Length" : content_length,
+            "Content-Disposition" : ContentDisposition.metadata_upload().serialise(),
+            "Digest" : digest,
+            "Metadata-Format" : metadata_format
         }
 
+        resp = self._http.post(service_url, body, headers)
 
-        self._http.post(service_url, body)
+        if resp.status_code in [201, 202]:
+            data = json.loads(resp.body)
+            return DepositResponse(resp.status_code, resp.header("Location"), data)
 
     def create_object_with_binary(self, service, binary, content_length=None, content_type=None, digest=None, packaging=None):
         pass
