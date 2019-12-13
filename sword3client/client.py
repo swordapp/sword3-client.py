@@ -1,21 +1,23 @@
 from sword3client.connection.connection_requests import RequestsHttpLayer
 from sword3client.exceptions import SWORD3WireError, SWORD3AuthenticationError, SWORD3NotFound
+from sword3client.models.deposit_response import DepositResponse
 
 from sword3common.models.service import ServiceDocument
+from sword3common.models.metadata import Metadata
 from sword3common.lib.disposition import ContentDisposition
 from sword3common import constants
 
 import json
-import sys
 import hashlib
 import base64
+import typing
 
 class SWORD3Client(object):
 
     def __init__(self, http=None):
         self._http = http if http is not None else RequestsHttpLayer()
 
-    def get_service(self, service_url):
+    def get_service(self, service_url:str):
         resp = self._http.get(service_url)
         if resp.status_code == 200:
             data = json.loads(resp.body)
@@ -27,31 +29,38 @@ class SWORD3Client(object):
         else:
             raise SWORD3WireError(service_url, resp, "Unexpected status code; unable to retrieve Service Document")
 
-    def create_object_with_metadata(self, service, metadata, digest=None, metadata_format=None):
+    def create_object_with_metadata(self,
+                                    service: typing.Union[ServiceDocument, str],
+                                    metadata: Metadata,
+                                    digest: str=None,
+                                    metadata_format: str=None
+                                    ) -> DepositResponse:
+
         # get the service url.  The first argument may be the URL or the ServiceDocument
         service_url = service
         if isinstance(service, ServiceDocument):
             service_url = service.service_url
 
         body = json.dumps(metadata.data)
-        content_length = sys.getsizeof(body)
+        body_bytes = body.encode("utf-8")
+        content_length = len(body_bytes)
 
         if digest is None:
-            d = hashlib.sha256(body.encode("utf-8"))
+            d = hashlib.sha256(body_bytes)
             digest = "{x}={y}".format(x=constants.DIGEST_SHA_256, y=base64.b64encode(d.digest()))
 
         if metadata_format is None:
             metadata_format = constants.URI_METADATA
 
         headers = {
-            "Content-Type" : "application/json",
+            "Content-Type" : "application/json; charset=UTF-8",
             "Content-Length" : content_length,
             "Content-Disposition" : ContentDisposition.metadata_upload().serialise(),
             "Digest" : digest,
             "Metadata-Format" : metadata_format
         }
 
-        resp = self._http.post(service_url, body, headers)
+        resp = self._http.post(service_url, body_bytes, headers)
 
         if resp.status_code in [201, 202]:
             data = json.loads(resp.body)
