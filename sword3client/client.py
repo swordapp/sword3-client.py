@@ -29,6 +29,7 @@ class SWORD3Client(object):
         else:
             raise SWORD3WireError(service_url, resp, "Unexpected status code; unable to retrieve Service Document")
 
+    # FIXME: make the digest argument a dict of digest types
     def create_object_with_metadata(self,
                                     service: typing.Union[ServiceDocument, str],
                                     metadata: Metadata,

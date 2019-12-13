@@ -5,3 +5,6 @@ class DepositResponse(object):
         self._status = status
         self._location = location
         self._status_document = StatusDocument(data)
+
+    def location(self):
+        return self._location
