@@ -65,9 +65,45 @@ class SWORD3Client(object):
         if resp.status_code in [201, 202]:
             data = json.loads(resp.body)
             return DepositResponse(resp.status_code, resp.header("Location"), data)
+        # FIXME: implement other http response codes
 
-    def create_object_with_binary(self, service, binary, content_length=None, content_type=None, digest=None, packaging=None):
-        pass
+    def create_object_with_binary(self,
+                                  service: typing.Union[ServiceDocument, str],
+                                  binary_stream: typing.IO,
+                                  filename: str,
+                                  digest: str,
+                                  content_length: int=None,
+                                  content_type: str=None,
+                                  packaging: str=None
+                                  ) -> DepositResponse:
+
+        # get the service url.  The first argument may be the URL or the ServiceDocument
+        service_url = service
+        if isinstance(service, ServiceDocument):
+            service_url = service.service_url
+
+        if content_type is None:
+            content_type = "application/octet-stream"
+
+        if packaging is None:
+            packaging = constants.PACKAGE_BINARY
+
+        headers = {
+            "Content-Type": content_type,
+            "Content-Disposition": ContentDisposition.binary_upload(filename).serialise(),
+            "Digest": digest,
+            "Packaging" : packaging,
+        }
+
+        if content_length is not None:
+            headers["Content-Length"] = content_length
+
+        resp = self._http.post(service_url, binary_stream, headers)
+
+        if resp.status_code in [201, 202]:
+            data = json.loads(resp.body)
+            return DepositResponse(resp.status_code, resp.header("Location"), data)
+        # FIXME: do other response types
 
     def get_object(self):
         pass
