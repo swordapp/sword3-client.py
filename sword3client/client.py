@@ -47,12 +47,10 @@ class SWORD3Client(object):
 
         if digest is None:
             d = hashlib.sha256(body_bytes)
-            digest[constants.DIGEST_SHA_256] = base64.b64encode(d.digest())
-
-        digest_parts = []
-        for k, v in digest.items():
-            digest_parts.append("{x}={y}".format(x=k, y=v))
-        digest_val = ", ".join(digest_parts)
+            digest = {
+                constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+            }
+        digest_val = self._make_digest_header(digest)
 
         if metadata_format is None:
             metadata_format = constants.URI_METADATA
@@ -91,12 +89,38 @@ class SWORD3Client(object):
                                   service: typing.Union[ServiceDocument, str],
                                   binary_stream: typing.IO,
                                   filename: str,
-                                  digest: str,
+                                  digest: typing.Dict[str, str],
                                   content_length: int=None,
-                                  content_type: str=None,
-                                  packaging: str=None
+                                  content_type: str=None
                                   ) -> DepositResponse:
 
+        return self._generic_create_binary(service, binary_stream, filename, digest, content_length, content_type,
+                                           constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename), "binary")
+
+    def create_object_with_package(self,
+                                   service: typing.Union[ServiceDocument, str],
+                                   binary_stream: typing.IO,
+                                   filename: str,
+                                   digest: typing.Dict[str, str],
+                                   content_length: int=None,
+                                   content_type: str=None,
+                                   packaging: str=None
+                                   ) -> DepositResponse:
+        return self._generic_create_binary(service, binary_stream, filename, digest, content_length, content_type,
+                                           packaging, ContentDisposition.package_upload(filename),
+                                           "packaged")
+
+    def _generic_create_binary(self,
+                               service: typing.Union[ServiceDocument, str],
+                               binary_stream: typing.IO,
+                               filename: str,
+                               digest: typing.Dict[str, str],
+                               content_length: int,
+                               content_type: str,
+                               packaging: str,
+                               content_disposition: ContentDisposition,
+                               reporting_type: str
+                               ) -> DepositResponse:
         # get the service url.  The first argument may be the URL or the ServiceDocument
         service_url = service
         if isinstance(service, ServiceDocument):
@@ -108,11 +132,13 @@ class SWORD3Client(object):
         if packaging is None:
             packaging = constants.PACKAGE_BINARY
 
+        digest_val = self._make_digest_header(digest)
+
         headers = {
             "Content-Type": content_type,
-            "Content-Disposition": ContentDisposition.binary_upload(filename).serialise(),
-            "Digest": digest,
-            "Packaging" : packaging,
+            "Content-Disposition": content_disposition.serialise(),
+            "Digest": digest_val,
+            "Packaging": packaging,
         }
 
         if content_length is not None:
@@ -126,7 +152,7 @@ class SWORD3Client(object):
         elif resp.status_code == 400:
             raise exceptions.SWORD3BadRequest(service_url, resp, "The server did not understand the request")
         elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(service_url, resp, "Authentication failed creating object with binary content")
+            raise exceptions.SWORD3AuthenticationError(service_url, resp, "Authentication failed creating object with {x} content".format(x=reporting_type))
         elif resp.status_code == 404:
             raise exceptions.SWORD3NotFound(service_url, resp, "No Service found at requested URL")
         elif resp.status_code == 405:
@@ -138,7 +164,13 @@ class SWORD3Client(object):
         elif resp.status_code == 415:
             raise exceptions.SWORD3UnsupportedMediaType(service_url, resp, "The Content-Type that you sent was not supported by the server")
         else:
-            raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to create object with binary content")
+            raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to create object with {x} content".format(x=reporting_type))
+
+    def _make_digest_header(self, digest: typing.Dict[str, str]):
+        digest_parts = []
+        for k, v in digest.items():
+            digest_parts.append("{x}={y}".format(x=k, y=v))
+        return ", ".join(digest_parts)
 
     def get_object(self):
         pass

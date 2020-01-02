@@ -23,7 +23,9 @@ class TestBinaryDeposit(TestCase):
 
         bytes = b"this is a random stream of bytes"
         d = hashlib.sha256(bytes)
-        digest = "{x}={y}".format(x=constants.DIGEST_SHA_256, y=base64.b64encode(d.digest()))
+        digest = {
+            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+        }
         stream = BytesIO(bytes)
 
         try:
