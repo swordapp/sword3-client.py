@@ -25,5 +25,26 @@ class SWORD3WireError(SWORD3Error):
 class SWORD3AuthenticationError(SWORD3WireError):
     pass
 
+
 class SWORD3NotFound(SWORD3WireError):
+    pass
+
+
+class SWORD3BadRequest(SWORD3WireError):
+    pass
+
+
+class SWORD3OperationNotAllowed(SWORD3WireError):
+    pass
+
+
+class SWORD3PreconditionFailed(SWORD3WireError):
+    pass
+
+
+class SWORD3MaxSizeExceeded(SWORD3WireError):
+    pass
+
+
+class SWORD3UnsupportedMediaType(SWORD3WireError):
     pass
