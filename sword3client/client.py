@@ -4,8 +4,10 @@ from sword3client.models.deposit_response import DepositResponse
 
 from sword3common.models.service import ServiceDocument
 from sword3common.models.metadata import Metadata
+from sword3common.models.status import StatusDocument
 from sword3common.lib.disposition import ContentDisposition
 from sword3common import constants
+from sword3common.lib.seamless import SeamlessException
 
 import json
 import hashlib
@@ -172,8 +174,56 @@ class SWORD3Client(object):
             digest_parts.append("{x}={y}".format(x=k, y=v))
         return ", ".join(digest_parts)
 
-    def get_object(self):
-        pass
+    def get_object(self, sword_object: typing.Union[StatusDocument, str]) -> StatusDocument:
+        # get the status url.  The first argument may be the URL or the StatusDocument
+        object_url = sword_object
+        if isinstance(sword_object, StatusDocument):
+            object_url = sword_object.object_url
+
+        resp = self._http.get(object_url)
+
+        if resp.status_code == 200:
+            data = json.loads(resp.body)
+            try:
+                return StatusDocument(data)
+            except SeamlessException as e:
+                raise exceptions.SWORD3InvalidDataFromServer(e, "Object retrieval got invalid status document")
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed retrieving an object")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        else:
+            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to retrieve object")
+
+    def get_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> Metadata:
+        metadata_url = status_or_metadata_url
+        if isinstance(status_or_metadata_url, StatusDocument):
+            metadata_url = status_or_metadata_url.metadata_url
+
+        resp = self._http.get(metadata_url)
+
+        if resp.status_code == 200:
+            data = json.loads(resp.body)
+            try:
+                return Metadata(data)
+            except SeamlessException as e:
+                raise exceptions.SWORD3InvalidDataFromServer(e, "Metadata retrieval got invalid metadata document")
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed retrieving object metadata")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata retrieval")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        else:
+            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to retrieve object metadata")
 
     def add_to_object(self):
         pass
@@ -182,9 +232,6 @@ class SWORD3Client(object):
         pass
 
     def delete_object(self):
-        pass
-
-    def get_metadata(self):
         pass
 
     def replace_metadata(self):

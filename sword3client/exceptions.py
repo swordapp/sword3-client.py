@@ -48,3 +48,12 @@ class SWORD3MaxSizeExceeded(SWORD3WireError):
 
 class SWORD3UnsupportedMediaType(SWORD3WireError):
     pass
+
+
+class SWORD3InvalidDataFromServer(SWORD3Error):
+    def __init__(self, inner, message):
+        self.inner = inner
+        super(SWORD3InvalidDataFromServer, self).__init__(message)
+
+    def __str__(self):
+        return "{x} -> {y}".format(x=self.message, y=self.inner.message)
