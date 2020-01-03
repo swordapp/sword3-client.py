@@ -6,8 +6,8 @@ class RequestsHttpLayer(HttpLayer):
     def __init__(self, auth=None):
         super(RequestsHttpLayer, self).__init__(auth)
 
-    def get(self, url, headers=None):
-        return RequestsHttpResponse(requests.get(url, headers=headers))
+    def get(self, url, headers=None, stream=False):
+        return RequestsHttpResponse(requests.get(url, stream=stream, headers=headers))
 
     def put(self):
         pass
@@ -23,6 +23,12 @@ class RequestsHttpResponse(HttpResponse):
     def __init__(self, resp):
         self.resp = resp
 
+    def __enter__(self):
+        self.resp.__enter__()
+
+    def __exit__(self):
+        self.resp.__exit__()
+
     @property
     def status_code(self):
         return self.resp.status_code
@@ -30,6 +36,10 @@ class RequestsHttpResponse(HttpResponse):
     @property
     def body(self):
         return self.resp.text
+
+    @property
+    def stream(self):
+        return self.resp.raw
 
     def header(self, header_name):
         return self.resp.headers.get(header_name)
