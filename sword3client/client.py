@@ -13,6 +13,7 @@ import json
 import hashlib
 import base64
 import typing
+import contextlib
 
 class SWORD3Client(object):
 
@@ -225,6 +226,30 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to retrieve object metadata")
 
+    def get_file(self, file_url: str):
+        @contextlib.contextmanager
+        def file_getter():
+            resp = self._http.get(file_url, stream=True)
+            resp.__enter__()
+
+            if resp.status_code == 400:
+                raise exceptions.SWORD3BadRequest(file_url, resp, "The server did not understand the request")
+            elif resp.status_code in [401, 403]:
+                raise exceptions.SWORD3AuthenticationError(file_url, resp, "Authentication failed retrieving object metadata")
+            elif resp.status_code == 404:
+                raise exceptions.SWORD3NotFound(file_url, resp, "No File found at requested URL")
+            elif resp.status_code == 405:
+                raise exceptions.SWORD3OperationNotAllowed(file_url, resp, "The Object does not support file retrieval")
+            elif resp.status_code == 412:
+                raise exceptions.SWORD3PreconditionFailed(file_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+            elif resp.status_code != 200:
+                raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to retrieve file")
+
+            yield resp.stream
+            resp.__exit__()
+
+        return file_getter()
+
     def add_to_object(self):
         pass
 
@@ -241,9 +266,6 @@ class SWORD3Client(object):
         pass
 
     def delete_fileset(self):
-        pass
-
-    def get_file(self):
         pass
 
     def replace_file(self):
