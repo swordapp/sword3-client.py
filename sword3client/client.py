@@ -32,6 +32,10 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to retrieve Service Document")
 
+    ######################################################
+    ## Metadata protocol operations
+    ######################################################
+
     def create_object_with_metadata(self,
                                     service: typing.Union[ServiceDocument, str],
                                     metadata: Metadata,
@@ -87,6 +91,89 @@ class SWORD3Client(object):
             raise exceptions.SWORD3UnsupportedMediaType(service_url, resp, "The Content-Type that you sent was not supported by the server")
         else:
             raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to create object with metadata")
+
+    def get_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> Metadata:
+        metadata_url = status_or_metadata_url
+        if isinstance(status_or_metadata_url, StatusDocument):
+            metadata_url = status_or_metadata_url.metadata_url
+
+        resp = self._http.get(metadata_url)
+
+        if resp.status_code == 200:
+            data = json.loads(resp.body)
+            try:
+                return Metadata(data)
+            except SeamlessException as e:
+                raise exceptions.SWORD3InvalidDataFromServer(e, "Metadata retrieval got invalid metadata document")
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed retrieving object metadata")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata retrieval")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        else:
+            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to retrieve object metadata")
+
+    def append_metadata(self,
+                        status_or_object_url: typing.Union[ServiceDocument, str],
+                        metadata: Metadata,
+                        digest: typing.Dict[str, str]=None,
+                        metadata_format: str=None
+                        ) -> DepositResponse:
+
+        object_url = status_or_object_url
+        if isinstance(status_or_object_url, StatusDocument):
+            object_url = status_or_object_url.object_url
+
+        body = json.dumps(metadata.data)
+        body_bytes = body.encode("utf-8")
+        content_length = len(body_bytes)
+
+        if digest is None:
+            d = hashlib.sha256(body_bytes)
+            digest = {
+                constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+            }
+        digest_val = self._make_digest_header(digest)
+
+        if metadata_format is None:
+            metadata_format = constants.URI_METADATA
+
+        headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Content-Length": content_length,
+            "Content-Disposition": ContentDisposition.metadata_upload().serialise(),
+            "Digest": digest_val,
+            "Metadata-Format": metadata_format
+        }
+
+        resp = self._http.post(object_url, body_bytes, headers)
+
+        if resp.status_code in [200, 202]:
+            data = json.loads(resp.body)
+            return DepositResponse(resp.status_code, resp.header("Location"), data)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed appending metadata to object")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        elif resp.status_code == 413:
+            raise exceptions.SWORD3MaxSizeExceeded(object_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
+        elif resp.status_code == 415:
+            raise exceptions.SWORD3UnsupportedMediaType(object_url, resp, "The Content-Type that you sent was not supported by the server")
+        else:
+            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to append metadata to object")
+
+    #######################################################
+    # Binary/Package protocol operations
+    #######################################################
 
     def create_object_with_binary(self,
                                   service: typing.Union[ServiceDocument, str],
@@ -199,32 +286,6 @@ class SWORD3Client(object):
             raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
         else:
             raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to retrieve object")
-
-    def get_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> Metadata:
-        metadata_url = status_or_metadata_url
-        if isinstance(status_or_metadata_url, StatusDocument):
-            metadata_url = status_or_metadata_url.metadata_url
-
-        resp = self._http.get(metadata_url)
-
-        if resp.status_code == 200:
-            data = json.loads(resp.body)
-            try:
-                return Metadata(data)
-            except SeamlessException as e:
-                raise exceptions.SWORD3InvalidDataFromServer(e, "Metadata retrieval got invalid metadata document")
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed retrieving object metadata")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata retrieval")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        else:
-            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to retrieve object metadata")
 
     def get_file(self, file_url: str):
         @contextlib.contextmanager

@@ -30,3 +30,19 @@ class TestService(TestCase):
         except SeamlessException as e:
             print(e.message)
 
+    def test_02_append_metadata(self):
+        OBJ_URL = "http://example.com/obect/10"
+        BODY = json.dumps(StatusFixtureFactory.status_document())
+        HEADERS = {"Location": "http://example.com/location"}
+
+        client = SWORD3Client(http=MockHttpLayer(200, BODY, HEADERS))
+
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test Append")
+        metadata.add_dcterms_field("rights", "Some of them")
+        metadata.add_field("custom", "value")
+
+        try:
+            dr = client.append_metadata(OBJ_URL, metadata)
+        except SeamlessException as e:
+            print(e.message)
