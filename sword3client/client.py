@@ -200,6 +200,31 @@ class SWORD3Client(object):
                                            packaging, ContentDisposition.package_upload(filename),
                                            "packaged")
 
+    def add_binary(self,
+                   status_or_object_url: typing.Union[StatusDocument, str],
+                   binary_stream: typing.IO,
+                   filename: str,
+                   digest: typing.Dict[str, str],
+                   content_length: int = None,
+                   content_type: str = None
+                   ) -> DepositResponse:
+
+        return self._generic_add_binary(status_or_object_url, binary_stream, filename, digest, content_length, content_type,
+                                        constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename), "binary")
+
+    def add_package(self,
+                    status_or_object_url: typing.Union[StatusDocument, str],
+                    binary_stream: typing.IO,
+                    filename: str,
+                    digest: typing.Dict[str, str],
+                    content_length: int = None,
+                    content_type: str = None,
+                    packaging: str=None
+                    )-> DepositResponse:
+
+        return self._generic_add_binary(status_or_object_url, binary_stream, filename, digest, content_length, content_type,
+                                        packaging, ContentDisposition.package_upload(filename), "packaged")
+
     def _generic_create_binary(self,
                                service: typing.Union[ServiceDocument, str],
                                binary_stream: typing.IO,
@@ -256,11 +281,64 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to create object with {x} content".format(x=reporting_type))
 
-    def _make_digest_header(self, digest: typing.Dict[str, str]):
-        digest_parts = []
-        for k, v in digest.items():
-            digest_parts.append("{x}={y}".format(x=k, y=v))
-        return ", ".join(digest_parts)
+    def _generic_add_binary(self,
+                            status_or_object_url: typing.Union[StatusDocument, str],
+                            binary_stream: typing.IO,
+                            filename: str,
+                            digest: typing.Dict[str, str],
+                            content_length: int,
+                            content_type: str,
+                            packaging: str,
+                            content_disposition: ContentDisposition,
+                            reporting_type: str
+                            ) -> DepositResponse:
+
+        object_url = status_or_object_url
+        if isinstance(status_or_object_url, StatusDocument):
+            object_url = status_or_object_url.object_url
+
+        if content_type is None:
+            content_type = "application/octet-stream"
+
+        if packaging is None:
+            packaging = constants.PACKAGE_BINARY
+
+        digest_val = self._make_digest_header(digest)
+
+        headers = {
+            "Content-Type": content_type,
+            "Content-Disposition": content_disposition.serialise(),
+            "Digest": digest_val,
+            "Packaging": packaging,
+        }
+
+        if content_length is not None:
+            headers["Content-Length"] = content_length
+
+        resp = self._http.post(object_url, binary_stream, headers)
+
+        if resp.status_code in [200, 202]:
+            data = json.loads(resp.body)
+            return DepositResponse(resp.status_code, resp.header("Location"), data)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed appending to object with {x} content".format(x=reporting_type))
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        elif resp.status_code == 413:
+            raise exceptions.SWORD3MaxSizeExceeded(object_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
+        elif resp.status_code == 415:
+            raise exceptions.SWORD3UnsupportedMediaType(object_url, resp, "The Content-Type that you sent was not supported by the server")
+        else:
+            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to append to object with {x} content".format(x=reporting_type))
+
+
+    #####################################################
+    ## Object level protocol operations
+    #####################################################
 
     def get_object(self, sword_object: typing.Union[StatusDocument, str]) -> StatusDocument:
         # get the status url.  The first argument may be the URL or the StatusDocument
@@ -334,3 +412,13 @@ class SWORD3Client(object):
 
     def delete_file(self):
         pass
+
+    ###########################################################
+    ## Utility methods
+    ###########################################################
+
+    def _make_digest_header(self, digest: typing.Dict[str, str]):
+        digest_parts = []
+        for k, v in digest.items():
+            digest_parts.append("{x}={y}".format(x=k, y=v))
+        return ", ".join(digest_parts)

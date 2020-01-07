@@ -54,3 +54,42 @@ class TestBinaryDeposit(TestCase):
                                                        packaging=constants.PACKAGE_SWORDBAGIT)
             except SeamlessException as e:
                 print(e.message)
+
+    def test_03_add_binary(self):
+        OBJ_URL = "http://example.com/object/10"
+        BODY = json.dumps(StatusFixtureFactory.status_document())
+        HEADERS = {"Location": OBJ_URL}
+
+        client = SWORD3Client(http=MockHttpLayer(200, BODY, HEADERS))
+
+        bytes = b"this is a random stream of bytes"
+        d = hashlib.sha256(bytes)
+        digest = {
+            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+        }
+        stream = BytesIO(bytes)
+
+        try:
+            dr = client.add_binary(OBJ_URL, stream, "test.bin", digest)
+        except SeamlessException as e:
+            print(e.message)
+
+    def test_04_add_package(self):
+        OBJ_URL = "http://example.com/object/10"
+        BODY = json.dumps(StatusFixtureFactory.status_document())
+        HEADERS = {"Location": OBJ_URL}
+
+        client = SWORD3Client(http=MockHttpLayer(200, BODY, HEADERS))
+
+        bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
+        d = paths.sha256(bag)
+        digest = {
+            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+        }
+        with open(bag, "rb") as stream:
+            try:
+                dr = client.add_package(OBJ_URL, stream, "test.zip", digest,
+                                                       content_type="application/zip",
+                                                       packaging=constants.PACKAGE_SWORDBAGIT)
+            except SeamlessException as e:
+                print(e.message)
