@@ -46,3 +46,18 @@ class TestService(TestCase):
             dr = client.append_metadata(OBJ_URL, metadata)
         except SeamlessException as e:
             print(e.message)
+
+    def test_03_replace_metadata(self):
+        MD_URL = "http://example.com/obect/10/metadata"
+
+        client = SWORD3Client(http=MockHttpLayer(204))
+
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test Append")
+        metadata.add_dcterms_field("rights", "Some of them")
+        metadata.add_field("custom", "value")
+
+        try:
+            dr = client.replace_metadata(MD_URL, metadata)
+        except SeamlessException as e:
+            print(e.message)

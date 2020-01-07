@@ -5,7 +5,7 @@ class HttpLayer(object):
     def get(self, url, headers=None, stream=False):
         raise NotImplementedError
 
-    def put(self):
+    def put(self, url, data, headers=None):
         raise NotImplementedError
 
     def post(self, url, data, headers=None):

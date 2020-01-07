@@ -9,8 +9,8 @@ class RequestsHttpLayer(HttpLayer):
     def get(self, url, headers=None, stream=False):
         return RequestsHttpResponse(requests.get(url, stream=stream, headers=headers))
 
-    def put(self):
-        pass
+    def put(self, url, data, headers=None):
+        return RequestsHttpResponse(requests.put(url, data, headers=headers))
 
     def post(self, url, data, headers=None):
         return RequestsHttpResponse(requests.post(url, data, headers=headers))

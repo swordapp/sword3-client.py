@@ -171,6 +171,60 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to append metadata to object")
 
+    def replace_metadata(self,
+                        status_or_metadata_url: typing.Union[ServiceDocument, str],
+                        metadata: Metadata,
+                        digest: typing.Dict[str, str]=None,
+                        metadata_format: str=None
+                        ) -> DepositResponse:
+
+        metadata_url = status_or_metadata_url
+        if isinstance(status_or_metadata_url, StatusDocument):
+            metadata_url = status_or_metadata_url.metadata_url
+
+        body = json.dumps(metadata.data)
+        body_bytes = body.encode("utf-8")
+        content_length = len(body_bytes)
+
+        if digest is None:
+            d = hashlib.sha256(body_bytes)
+            digest = {
+                constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+            }
+        digest_val = self._make_digest_header(digest)
+
+        if metadata_format is None:
+            metadata_format = constants.URI_METADATA
+
+        headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Content-Length": content_length,
+            "Content-Disposition": ContentDisposition.metadata_upload().serialise(),
+            "Digest": digest_val,
+            "Metadata-Format": metadata_format
+        }
+
+        resp = self._http.put(metadata_url, body, headers)
+
+        if resp.status_code == 204:
+            return DepositResponse(resp.status_code)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed replacing metadata in object")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata replacement")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        elif resp.status_code == 413:
+            raise exceptions.SWORD3MaxSizeExceeded(metadata_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
+        elif resp.status_code == 415:
+            raise exceptions.SWORD3UnsupportedMediaType(metadata_url, resp, "The Content-Type that you sent was not supported by the server")
+        else:
+            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to replace metadata in object")
+
     #######################################################
     # Binary/Package protocol operations
     #######################################################
@@ -396,9 +450,6 @@ class SWORD3Client(object):
         pass
 
     def delete_object(self):
-        pass
-
-    def replace_metadata(self):
         pass
 
     def replace_fileset(self):

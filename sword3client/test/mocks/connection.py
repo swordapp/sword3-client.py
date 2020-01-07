@@ -15,6 +15,9 @@ class MockHttpLayer(HttpLayer):
     def post(self, url, body, headers=None):
         return self._respond()
 
+    def put(self, url, body, headers=None):
+        return self._respond()
+
     def _respond(self):
         body = self.body if self.body is not None else ""
         return MockHttpResponse(self.code, body, self.headers, self.stream)
