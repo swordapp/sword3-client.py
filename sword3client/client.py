@@ -419,6 +419,10 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to retrieve object")
 
+    #################################################
+    ## Individual file protocol operations
+    #################################################
+
     def get_file(self, file_url: str):
         @contextlib.contextmanager
         def file_getter():
@@ -443,6 +447,45 @@ class SWORD3Client(object):
 
         return file_getter()
 
+    def replace_file(self,
+                     file_url: str,
+                     binary_stream: typing.IO,
+                     content_type: str,
+                     digest: typing.Dict[str, str],
+                     filename: str=None):
+
+        digest_val = self._make_digest_header(digest)
+
+        # FIXME: an issue has been raised for this - what happens if no filename is provided
+        if filename is None:
+            filename = "untitled"
+
+        headers = {
+            "Content-Type": content_type,
+            "Content-Disposition": ContentDisposition.binary_upload(filename).serialise(),
+            "Digest": digest_val,
+            "Packaging": constants.PACKAGE_BINARY,
+        }
+
+        resp = self._http.put(file_url, binary_stream, headers)
+
+        if resp.status_code == 204:
+            return DepositResponse(resp.status_code)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(file_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(file_url, resp, "Authentication failed replacing file")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(file_url, resp, "No File found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(file_url, resp, "The Object does not support file replacement")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(file_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        elif resp.status_code == 413:
+            raise exceptions.SWORD3MaxSizeExceeded(file_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
+        else:
+            raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to replace file on object")
+
     def add_to_object(self):
         pass
 
@@ -458,8 +501,6 @@ class SWORD3Client(object):
     def delete_fileset(self):
         pass
 
-    def replace_file(self):
-        pass
 
     def delete_file(self):
         pass

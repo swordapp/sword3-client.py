@@ -99,3 +99,4 @@ class TestObjectMethods(unittest.TestCase):
         d2 = paths.sha256(data_out)
 
         assert d1.hexdigest() == d2.hexdigest()
+
