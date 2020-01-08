@@ -3,9 +3,9 @@ from sword3common.lib.seamless import SeamlessException
 from sword3client.exceptions import SWORD3InvalidDataFromServer
 
 class DepositResponse(object):
-    def __init__(self, status, location=None, data=None):
-        self._status = status
-        self._location = location
+    def __init__(self, http_response, data=None):
+        self._http_response = http_response
+        # self._location = location
         if data is not None:
             try:
                 self._status_document = StatusDocument(data)
@@ -14,11 +14,21 @@ class DepositResponse(object):
 
     @property
     def location(self):
-        return self._location
+        # first look in the http response
+        http_location = self._http_response.header("Location")
+        if http_location is not None:
+            return http_location
+
+        # then look in the status document
+        if self._status_document is not None:
+            return self._status_document.object_url
+
+        # otherwise we weren't given one
+        return None
 
     @property
     def status_code(self):
-        return self._status
+        return self._http_response.status_code
 
     @property
     def status_document(self):
