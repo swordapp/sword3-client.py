@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from sword3client.client import SWORD3Client
+from sword3client import SWORD3Client
 from sword3common import constants
 
 from io import BytesIO

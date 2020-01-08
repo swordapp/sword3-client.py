@@ -1,4 +1,4 @@
-from sword3client.connection.connection import HttpLayer, HttpResponse
+from sword3client.connection import HttpLayer, HttpResponse
 import requests
 
 

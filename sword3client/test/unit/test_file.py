@@ -2,7 +2,7 @@ import unittest
 import shutil
 import os
 
-from sword3client.client import SWORD3Client
+from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
 from sword3client.lib import paths
 

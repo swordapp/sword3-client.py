@@ -1,17 +1,15 @@
 import unittest
 import json
-import shutil
 import os
 
-from sword3client.client import SWORD3Client
+from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
 from sword3client.exceptions import SWORD3AuthenticationError, SWORD3NotFound, SWORD3WireError
 from sword3client.lib import paths
 
-from sword3common.test.fixtures.status import StatusFixtureFactory
-from sword3common.test.fixtures.metadata import MetadataFixtureFactory
-from sword3common.models.status import StatusDocument
-from sword3common.models.metadata import Metadata
+from sword3common.test.fixtures import StatusFixtureFactory, MetadataFixtureFactory
+from sword3common import StatusDocument, Metadata
+
 
 class TestObjectMethods(unittest.TestCase):
 

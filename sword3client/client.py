@@ -1,13 +1,8 @@
 from sword3client.connection.connection_requests import RequestsHttpLayer
-from sword3client import exceptions
-from sword3client.models.deposit_response import SWORDResponse
+from sword3client import SWORDResponse, exceptions
 
-from sword3common.models.service import ServiceDocument
-from sword3common.models.metadata import Metadata
-from sword3common.models.status import StatusDocument
-from sword3common.lib.disposition import ContentDisposition
-from sword3common import constants
-from sword3common.lib.seamless import SeamlessException
+from sword3common import ServiceDocument, Metadata, StatusDocument, ContentDisposition, constants
+from sword3common import exceptions as common_exceptions
 
 import json
 import hashlib
@@ -58,7 +53,7 @@ class SWORD3Client(object):
             data = json.loads(resp.body)
             try:
                 return Metadata(data)
-            except SeamlessException as e:
+            except common_exceptions.SeamlessException as e:
                 raise exceptions.SWORD3InvalidDataFromServer(e, "Metadata retrieval got invalid metadata document")
         else:
             self._raise_for_status_code(resp, metadata_url, [400, 401, 403, 404, 405, 412])
@@ -300,7 +295,7 @@ class SWORD3Client(object):
             data = json.loads(resp.body)
             try:
                 return StatusDocument(data)
-            except SeamlessException as e:
+            except common_exceptions.SeamlessException as e:
                 raise exceptions.SWORD3InvalidDataFromServer(e, "Object retrieval got invalid status document")
         else:
             self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 412])

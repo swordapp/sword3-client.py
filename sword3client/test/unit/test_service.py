@@ -1,11 +1,11 @@
 from unittest import TestCase
 
-from sword3client.client import SWORD3Client
+from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
 from sword3client.exceptions import SWORD3WireError, SWORD3AuthenticationError, SWORD3NotFound
 
-from sword3common.models.service import ServiceDocument
-from sword3common.test.fixtures.service import ServiceFixtureFactory
+from sword3common import ServiceDocument
+from sword3common.test.fixtures import ServiceFixtureFactory
 
 import json
 

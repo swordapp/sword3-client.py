@@ -1,13 +1,11 @@
 from unittest import TestCase
 
-from sword3client.client import SWORD3Client
+from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
-from sword3client.exceptions import SWORD3WireError, SWORD3AuthenticationError, SWORD3NotFound
 
-from sword3common.models.metadata import Metadata
-from sword3common.models.service import ServiceDocument
-from sword3common.test.fixtures.status import StatusFixtureFactory
-from sword3common.lib.seamless import SeamlessException
+from sword3common import Metadata, ServiceDocument
+from sword3common.test.fixtures import StatusFixtureFactory
+from sword3common.exceptions import SeamlessException
 
 import json
 

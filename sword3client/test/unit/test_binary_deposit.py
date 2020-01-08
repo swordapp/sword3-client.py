@@ -1,11 +1,13 @@
 from unittest import TestCase
 
-from sword3client.client import SWORD3Client
-from sword3client.test.mocks.connection import MockHttpLayer
+from sword3client import SWORD3Client
 from sword3client.lib import paths
-from sword3common.test.fixtures.status import StatusFixtureFactory
-from sword3common.lib.seamless import SeamlessException
+
+from sword3common.test.fixtures import StatusFixtureFactory
+from sword3common.exceptions import SeamlessException
 from sword3common import constants
+
+from sword3client.test.mocks.connection import MockHttpLayer
 
 import json
 from io import BytesIO
