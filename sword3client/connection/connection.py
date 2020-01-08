@@ -11,7 +11,7 @@ class HttpLayer(object):
     def post(self, url, data, headers=None):
         raise NotImplementedError
 
-    def delete(self):
+    def delete(self, url):
         raise NotImplementedError
 
 

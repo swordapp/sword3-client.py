@@ -225,6 +225,31 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to replace metadata in object")
 
+    def delete_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> DepositResponse:
+
+        metadata_url = status_or_metadata_url
+        if isinstance(status_or_metadata_url, StatusDocument):
+            metadata_url = status_or_metadata_url.metadata_url
+
+        resp = self._http.delete(metadata_url)
+
+        if resp.status_code == 204:
+            return DepositResponse(resp)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed deleting metadata from object")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata removal")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        elif resp.status_code == 413:
+            raise exceptions.SWORD3MaxSizeExceeded(metadata_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
+        else:
+            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to delete metadata from object")
+
     #######################################################
     # Binary/Package protocol operations
     #######################################################
@@ -580,7 +605,6 @@ class SWORD3Client(object):
 
     def delete_fileset(self):
         pass
-
 
     def delete_file(self):
         pass

@@ -15,8 +15,8 @@ class RequestsHttpLayer(HttpLayer):
     def post(self, url, data, headers=None):
         return RequestsHttpResponse(requests.post(url, data, headers=headers))
 
-    def delete(self):
-        pass
+    def delete(self, url):
+        return RequestsHttpResponse(requests.delete(url))
 
 
 class RequestsHttpResponse(HttpResponse):

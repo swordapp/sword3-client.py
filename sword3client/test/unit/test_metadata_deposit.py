@@ -61,3 +61,8 @@ class TestService(TestCase):
             dr = client.replace_metadata(MD_URL, metadata)
         except SeamlessException as e:
             print(e.message)
+
+    def test_04_delete_metadata(self):
+        MD_URL = "http://example.com/obect/10/metadata"
+        client = SWORD3Client(http=MockHttpLayer(204))
+        dr = client.delete_metadata(MD_URL)
