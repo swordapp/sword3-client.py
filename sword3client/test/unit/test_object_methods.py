@@ -81,22 +81,7 @@ class TestObjectMethods(unittest.TestCase):
         with self.assertRaises(SWORD3WireError):
             obj = client.get_metadata(MD_URL)
 
-    def test_03_get_file(self):
-        FILE_URL = "http://example.com/objects/10/files/1"
-
-        filename = "test_object_methods.test_03_get_file.bin"
-        data_in = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
-        data_out = paths.rel2abs(__file__, "..", "tmp", filename)
-        self.tmpFiles.append(filename)
-
-        with open(data_in, "rb") as f:
-            client = SWORD3Client(http=MockHttpLayer(200, stream=f))
-            with client.get_file(FILE_URL) as stream:
-                with open(data_out, 'wb') as g:
-                    shutil.copyfileobj(stream, g)
-
-        d1 = paths.sha256(data_in)
-        d2 = paths.sha256(data_out)
-
-        assert d1.hexdigest() == d2.hexdigest()
-
+    def test_02_delete_object(self):
+        OBJ_URL = "http://example.com/objects/10"
+        client = SWORD3Client(http=MockHttpLayer(204))
+        dr = client.delete_object(OBJ_URL)

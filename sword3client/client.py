@@ -523,8 +523,27 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to retrieve object")
 
-    def delete_object(self):
-        pass
+    def delete_object(self, sword_object: typing.Union[StatusDocument, str]) -> DepositResponse:
+        object_url = sword_object
+        if isinstance(sword_object, StatusDocument):
+            object_url = sword_object.object_url
+
+        resp = self._http.delete(object_url)
+
+        if resp.status_code == 204:
+            return DepositResponse(resp)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed deleting object")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(object_url, resp, "The Object does not support delete")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        else:
+            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to delete object")
 
     #################################################
     ## Individual file protocol operations
