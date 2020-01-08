@@ -2,11 +2,14 @@ from sword3common.models.status import StatusDocument
 from sword3common.lib.seamless import SeamlessException
 from sword3client.exceptions import SWORD3InvalidDataFromServer
 
-class DepositResponse(object):
-    def __init__(self, http_response, data=None):
+import json
+
+class SWORDResponse(object):
+    def __init__(self, http_response):
         self._http_response = http_response
-        # self._location = location
-        if data is not None:
+        body = http_response.body
+        if body:
+            data = json.loads(body)
             try:
                 self._status_document = StatusDocument(data)
             except SeamlessException as e:

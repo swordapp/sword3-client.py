@@ -1,6 +1,6 @@
 from sword3client.connection.connection_requests import RequestsHttpLayer
 from sword3client import exceptions
-from sword3client.models.deposit_response import DepositResponse
+from sword3client.models.deposit_response import SWORDResponse
 
 from sword3common.models.service import ServiceDocument
 from sword3common.models.metadata import Metadata
@@ -25,12 +25,8 @@ class SWORD3Client(object):
         if resp.status_code == 200:
             data = json.loads(resp.body)
             return ServiceDocument(data)
-        elif resp.status_code == 401 or resp.status_code == 403:
-            raise exceptions.SWORD3AuthenticationError(service_url, resp, "Authentication failed retrieving service document")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(service_url, resp, "No Service Document found at requested URL")
         else:
-            raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to retrieve Service Document")
+            self._raise_for_status_code(resp, service_url, [401, 403, 404])
 
     ######################################################
     ## Metadata protocol operations
@@ -41,62 +37,21 @@ class SWORD3Client(object):
                                     metadata: Metadata,
                                     digest: typing.Dict[str, str]=None,
                                     metadata_format: str=None
-                                    ) -> DepositResponse:
+                                    ) -> SWORDResponse:
 
         # get the service url.  The first argument may be the URL or the ServiceDocument
-        service_url = service
-        if isinstance(service, ServiceDocument):
-            service_url = service.service_url
-
-        body = json.dumps(metadata.data)
-        body_bytes = body.encode("utf-8")
-        content_length = len(body_bytes)
-
-        if digest is None:
-            d = hashlib.sha256(body_bytes)
-            digest = {
-                constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-            }
-        digest_val = self._make_digest_header(digest)
-
-        if metadata_format is None:
-            metadata_format = constants.URI_METADATA
-
-        headers = {
-            "Content-Type" : "application/json; charset=UTF-8",
-            "Content-Length" : content_length,
-            "Content-Disposition" : ContentDisposition.metadata_upload().serialise(),
-            "Digest" : digest_val,
-            "Metadata-Format" : metadata_format
-        }
-
+        service_url = self._get_url(service, "service_url")
+        body_bytes, headers = self._metadata_deposit_properties(metadata, metadata_format, digest)
         resp = self._http.post(service_url, body_bytes, headers)
 
         if resp.status_code in [201, 202]:
-            data = json.loads(resp.body)
-            return DepositResponse(resp, data)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(service_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(service_url, resp, "Authentication failed creating object with metadata")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(service_url, resp, "No Service found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(service_url, resp, "The Service does not support deposit")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(service_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(service_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
-        elif resp.status_code == 415:
-            raise exceptions.SWORD3UnsupportedMediaType(service_url, resp, "The Content-Type that you sent was not supported by the server")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to create object with metadata")
+            self._raise_for_status_code(resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415])
 
     def get_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> Metadata:
-        metadata_url = status_or_metadata_url
-        if isinstance(status_or_metadata_url, StatusDocument):
-            metadata_url = status_or_metadata_url.metadata_url
 
+        metadata_url = self._get_url(status_or_metadata_url, "metadata_url")
         resp = self._http.get(metadata_url)
 
         if resp.status_code == 200:
@@ -105,83 +60,52 @@ class SWORD3Client(object):
                 return Metadata(data)
             except SeamlessException as e:
                 raise exceptions.SWORD3InvalidDataFromServer(e, "Metadata retrieval got invalid metadata document")
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed retrieving object metadata")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata retrieval")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
         else:
-            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to retrieve object metadata")
+            self._raise_for_status_code(resp, metadata_url, [400, 401, 403, 404, 405, 412])
 
     def append_metadata(self,
                         status_or_object_url: typing.Union[ServiceDocument, str],
                         metadata: Metadata,
                         digest: typing.Dict[str, str]=None,
                         metadata_format: str=None
-                        ) -> DepositResponse:
+                        ) -> SWORDResponse:
 
-        object_url = status_or_object_url
-        if isinstance(status_or_object_url, StatusDocument):
-            object_url = status_or_object_url.object_url
-
-        body = json.dumps(metadata.data)
-        body_bytes = body.encode("utf-8")
-        content_length = len(body_bytes)
-
-        if digest is None:
-            d = hashlib.sha256(body_bytes)
-            digest = {
-                constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-            }
-        digest_val = self._make_digest_header(digest)
-
-        if metadata_format is None:
-            metadata_format = constants.URI_METADATA
-
-        headers = {
-            "Content-Type": "application/json; charset=UTF-8",
-            "Content-Length": content_length,
-            "Content-Disposition": ContentDisposition.metadata_upload().serialise(),
-            "Digest": digest_val,
-            "Metadata-Format": metadata_format
-        }
-
+        object_url = self._get_url(status_or_object_url, "object_url")
+        body_bytes, headers = self._metadata_deposit_properties(metadata, metadata_format, digest)
         resp = self._http.post(object_url, body_bytes, headers)
 
         if resp.status_code in [200, 202]:
-            data = json.loads(resp.body)
-            return DepositResponse(resp, data)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed appending metadata to object")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(object_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
-        elif resp.status_code == 415:
-            raise exceptions.SWORD3UnsupportedMediaType(object_url, resp, "The Content-Type that you sent was not supported by the server")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to append metadata to object")
+            self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 412, 413, 415])
 
     def replace_metadata(self,
                         status_or_metadata_url: typing.Union[ServiceDocument, str],
                         metadata: Metadata,
                         digest: typing.Dict[str, str]=None,
                         metadata_format: str=None
-                        ) -> DepositResponse:
+                        ) -> SWORDResponse:
 
-        metadata_url = status_or_metadata_url
-        if isinstance(status_or_metadata_url, StatusDocument):
-            metadata_url = status_or_metadata_url.metadata_url
+        metadata_url = self._get_url(status_or_metadata_url, "metadata_url")
+        body_bytes, headers = self._metadata_deposit_properties(metadata, metadata_format, digest)
+        resp = self._http.put(metadata_url, body_bytes, headers)
 
+        if resp.status_code == 204:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(resp, metadata_url, [400, 401, 403, 404, 405, 412, 413, 415])
+
+    def delete_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> SWORDResponse:
+
+        metadata_url = self._get_url(status_or_metadata_url, "metadata_url")
+        resp = self._http.delete(metadata_url)
+
+        if resp.status_code == 204:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(resp, metadata_url, [400, 401, 403, 404, 405, 412, 413])
+
+    def _metadata_deposit_properties(self, metadata, metadata_format, digest):
         body = json.dumps(metadata.data)
         body_bytes = body.encode("utf-8")
         content_length = len(body_bytes)
@@ -204,51 +128,7 @@ class SWORD3Client(object):
             "Metadata-Format": metadata_format
         }
 
-        resp = self._http.put(metadata_url, body, headers)
-
-        if resp.status_code == 204:
-            return DepositResponse(resp)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed replacing metadata in object")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata replacement")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(metadata_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
-        elif resp.status_code == 415:
-            raise exceptions.SWORD3UnsupportedMediaType(metadata_url, resp, "The Content-Type that you sent was not supported by the server")
-        else:
-            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to replace metadata in object")
-
-    def delete_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> DepositResponse:
-
-        metadata_url = status_or_metadata_url
-        if isinstance(status_or_metadata_url, StatusDocument):
-            metadata_url = status_or_metadata_url.metadata_url
-
-        resp = self._http.delete(metadata_url)
-
-        if resp.status_code == 204:
-            return DepositResponse(resp)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(metadata_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(metadata_url, resp, "Authentication failed deleting metadata from object")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(metadata_url, resp, "No Metadata found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(metadata_url, resp, "The Object does not support metadata removal")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(metadata_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(metadata_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
-        else:
-            raise exceptions.SWORD3WireError(metadata_url, resp, "Unexpected status code; unable to delete metadata from object")
+        return body_bytes, headers
 
     #######################################################
     # Binary/Package protocol operations
@@ -261,10 +141,10 @@ class SWORD3Client(object):
                                   digest: typing.Dict[str, str],
                                   content_length: int=None,
                                   content_type: str=None
-                                  ) -> DepositResponse:
+                                  ) -> SWORDResponse:
 
-        return self._generic_create_binary(service, binary_stream, filename, digest, content_length, content_type,
-                                           constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename), "binary")
+        return self._generic_create_binary(service, binary_stream, digest, content_length, content_type,
+                                           constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename))
 
     def create_object_with_package(self,
                                    service: typing.Union[ServiceDocument, str],
@@ -274,10 +154,9 @@ class SWORD3Client(object):
                                    content_length: int=None,
                                    content_type: str=None,
                                    packaging: str=None
-                                   ) -> DepositResponse:
-        return self._generic_create_binary(service, binary_stream, filename, digest, content_length, content_type,
-                                           packaging, ContentDisposition.package_upload(filename),
-                                           "packaged")
+                                   ) -> SWORDResponse:
+        return self._generic_create_binary(service, binary_stream, digest, content_length, content_type,
+                                           packaging, ContentDisposition.package_upload(filename))
 
     def add_binary(self,
                    status_or_object_url: typing.Union[StatusDocument, str],
@@ -286,10 +165,10 @@ class SWORD3Client(object):
                    digest: typing.Dict[str, str],
                    content_length: int = None,
                    content_type: str = None
-                   ) -> DepositResponse:
+                   ) -> SWORDResponse:
 
-        return self._generic_add_binary(status_or_object_url, binary_stream, filename, digest, content_length, content_type,
-                                        constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename), "binary")
+        return self._generic_add_binary(status_or_object_url, binary_stream, digest, content_length, content_type,
+                                        constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename))
 
     def add_package(self,
                     status_or_object_url: typing.Union[StatusDocument, str],
@@ -299,10 +178,10 @@ class SWORD3Client(object):
                     content_length: int = None,
                     content_type: str = None,
                     packaging: str=None
-                    )-> DepositResponse:
+                    )-> SWORDResponse:
 
-        return self._generic_add_binary(status_or_object_url, binary_stream, filename, digest, content_length, content_type,
-                                        packaging, ContentDisposition.package_upload(filename), "packaged")
+        return self._generic_add_binary(status_or_object_url, binary_stream, digest, content_length, content_type,
+                                        packaging, ContentDisposition.package_upload(filename))
 
     def replace_object_with_binary(self,
                                    status_or_object_url: typing.Union[StatusDocument, str],
@@ -311,10 +190,10 @@ class SWORD3Client(object):
                                    digest: typing.Dict[str, str],
                                    content_length: int=None,
                                    content_type: str=None,
-                                   ) -> DepositResponse:
+                                   ) -> SWORDResponse:
 
-        return self._generic_replace_binary(status_or_object_url, binary_stream, filename, digest, content_length, content_type,
-                                            constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename), "binary")
+        return self._generic_replace_binary(status_or_object_url, binary_stream, digest, content_length, content_type,
+                                            constants.PACKAGE_BINARY, ContentDisposition.binary_upload(filename))
 
     def replace_object_with_package(self,
                                     status_or_object_url: typing.Union[StatusDocument, str],
@@ -324,137 +203,70 @@ class SWORD3Client(object):
                                     content_length: int = None,
                                     content_type: str = None,
                                     packaging: str=None
-                                    )-> DepositResponse:
+                                    )-> SWORDResponse:
 
-        return self._generic_replace_binary(status_or_object_url, binary_stream, filename, digest, content_length, content_type,
-                                            packaging, ContentDisposition.package_upload(filename), "packaged")
+        return self._generic_replace_binary(status_or_object_url, binary_stream, digest, content_length, content_type,
+                                            packaging, ContentDisposition.package_upload(filename))
 
     def _generic_create_binary(self,
                                service: typing.Union[ServiceDocument, str],
                                binary_stream: typing.IO,
-                               filename: str,
                                digest: typing.Dict[str, str],
                                content_length: int,
                                content_type: str,
                                packaging: str,
                                content_disposition: ContentDisposition,
-                               reporting_type: str
-                               ) -> DepositResponse:
+                               ) -> SWORDResponse:
+
         # get the service url.  The first argument may be the URL or the ServiceDocument
-        service_url = service
-        if isinstance(service, ServiceDocument):
-            service_url = service.service_url
-
-        if content_type is None:
-            content_type = "application/octet-stream"
-
-        if packaging is None:
-            packaging = constants.PACKAGE_BINARY
-
-        digest_val = self._make_digest_header(digest)
-
-        headers = {
-            "Content-Type": content_type,
-            "Content-Disposition": content_disposition.serialise(),
-            "Digest": digest_val,
-            "Packaging": packaging,
-        }
-
-        if content_length is not None:
-            headers["Content-Length"] = content_length
-
+        service_url = self._get_url(service, "service_url")
+        headers = self._binary_deposit_properties(content_type, packaging, digest, content_disposition, content_length)
         resp = self._http.post(service_url, binary_stream, headers)
 
         if resp.status_code in [201, 202]:
-            data = json.loads(resp.body)
-            return DepositResponse(resp, data)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(service_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(service_url, resp, "Authentication failed creating object with {x} content".format(x=reporting_type))
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(service_url, resp, "No Service found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(service_url, resp, "The Service does not support deposit")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(service_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(service_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
-        elif resp.status_code == 415:
-            raise exceptions.SWORD3UnsupportedMediaType(service_url, resp, "The Content-Type that you sent was not supported by the server")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(service_url, resp, "Unexpected status code; unable to create object with {x} content".format(x=reporting_type))
+            self._raise_for_status_code(resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415])
 
     def _generic_add_binary(self,
                             status_or_object_url: typing.Union[StatusDocument, str],
                             binary_stream: typing.IO,
-                            filename: str,
                             digest: typing.Dict[str, str],
                             content_length: int,
                             content_type: str,
                             packaging: str,
                             content_disposition: ContentDisposition,
-                            reporting_type: str
-                            ) -> DepositResponse:
+                            ) -> SWORDResponse:
 
-        object_url = status_or_object_url
-        if isinstance(status_or_object_url, StatusDocument):
-            object_url = status_or_object_url.object_url
-
-        if content_type is None:
-            content_type = "application/octet-stream"
-
-        if packaging is None:
-            packaging = constants.PACKAGE_BINARY
-
-        digest_val = self._make_digest_header(digest)
-
-        headers = {
-            "Content-Type": content_type,
-            "Content-Disposition": content_disposition.serialise(),
-            "Digest": digest_val,
-            "Packaging": packaging,
-        }
-
-        if content_length is not None:
-            headers["Content-Length"] = content_length
-
+        object_url = self._get_url(status_or_object_url, "object_url")
+        headers = self._binary_deposit_properties(content_type, packaging, digest, content_disposition, content_length)
         resp = self._http.post(object_url, binary_stream, headers)
 
         if resp.status_code in [200, 202]:
-            data = json.loads(resp.body)
-            return DepositResponse(resp, data)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed appending to object with {x} content".format(x=reporting_type))
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(object_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
-        elif resp.status_code == 415:
-            raise exceptions.SWORD3UnsupportedMediaType(object_url, resp, "The Content-Type that you sent was not supported by the server")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to append to object with {x} content".format(x=reporting_type))
+            self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 412, 413, 415])
 
     def _generic_replace_binary(self,
                                 status_or_object_url: typing.Union[StatusDocument, str],
                                 binary_stream: typing.IO,
-                                filename: str,
                                 digest: typing.Dict[str, str],
                                 content_length: int,
                                 content_type: str,
                                 packaging: str,
                                 content_disposition: ContentDisposition,
-                                reporting_type: str
-                                ) -> DepositResponse:
+                                ) -> SWORDResponse:
 
-        object_url = status_or_object_url
-        if isinstance(status_or_object_url, StatusDocument):
-            object_url = status_or_object_url.object_url
+        object_url = self._get_url(status_or_object_url, "object_url")
+        headers = self._binary_deposit_properties(content_type, packaging, digest, content_disposition, content_length)
+        resp = self._http.put(object_url, binary_stream, headers)
 
+        if resp.status_code in [200, 202]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 412, 413, 415])
+
+    def _binary_deposit_properties(self, content_type, packaging, digest, content_disposition, content_length):
         if content_type is None:
             content_type = "application/octet-stream"
 
@@ -473,26 +285,7 @@ class SWORD3Client(object):
         if content_length is not None:
             headers["Content-Length"] = content_length
 
-        resp = self._http.put(object_url, binary_stream, headers)
-
-        if resp.status_code in [200, 202]:
-            data = json.loads(resp.body)
-            return DepositResponse(resp, data)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed replacing object with {x} content".format(x=reporting_type))
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(object_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
-        elif resp.status_code == 415:
-            raise exceptions.SWORD3UnsupportedMediaType(object_url, resp, "The Content-Type that you sent was not supported by the server")
-        else:
-            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to replace object with {x} content".format(x=reporting_type))
-
+        return headers
 
     #####################################################
     ## Object level protocol operations
@@ -500,10 +293,7 @@ class SWORD3Client(object):
 
     def get_object(self, sword_object: typing.Union[StatusDocument, str]) -> StatusDocument:
         # get the status url.  The first argument may be the URL or the StatusDocument
-        object_url = sword_object
-        if isinstance(sword_object, StatusDocument):
-            object_url = sword_object.object_url
-
+        object_url = self._get_url(sword_object, "object_url")
         resp = self._http.get(object_url)
 
         if resp.status_code == 200:
@@ -512,38 +302,18 @@ class SWORD3Client(object):
                 return StatusDocument(data)
             except SeamlessException as e:
                 raise exceptions.SWORD3InvalidDataFromServer(e, "Object retrieval got invalid status document")
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed retrieving an object")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
         else:
-            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to retrieve object")
+            self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 412])
 
-    def delete_object(self, sword_object: typing.Union[StatusDocument, str]) -> DepositResponse:
-        object_url = sword_object
-        if isinstance(sword_object, StatusDocument):
-            object_url = sword_object.object_url
+    def delete_object(self, sword_object: typing.Union[StatusDocument, str]) -> SWORDResponse:
 
+        object_url = self._get_url(sword_object, "object_url")
         resp = self._http.delete(object_url)
 
         if resp.status_code == 204:
-            return DepositResponse(resp)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(object_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(object_url, resp, "Authentication failed deleting object")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(object_url, resp, "No Object found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(object_url, resp, "The Object does not support delete")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(object_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to delete object")
+            self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 405, 412])
 
     #################################################
     ## Individual file protocol operations
@@ -555,17 +325,8 @@ class SWORD3Client(object):
             resp = self._http.get(file_url, stream=True)
             resp.__enter__()
 
-            if resp.status_code == 400:
-                raise exceptions.SWORD3BadRequest(file_url, resp, "The server did not understand the request")
-            elif resp.status_code in [401, 403]:
-                raise exceptions.SWORD3AuthenticationError(file_url, resp, "Authentication failed retrieving object metadata")
-            elif resp.status_code == 404:
-                raise exceptions.SWORD3NotFound(file_url, resp, "No File found at requested URL")
-            elif resp.status_code == 405:
-                raise exceptions.SWORD3OperationNotAllowed(file_url, resp, "The Object does not support file retrieval")
-            elif resp.status_code == 412:
-                raise exceptions.SWORD3PreconditionFailed(file_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-            elif resp.status_code != 200:
+            self._raise_for_status_code(resp, file_url, [400, 401, 403, 404, 405, 412], False)
+            if resp.status_code != 200:
                 raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to retrieve file")
 
             yield resp.stream
@@ -578,90 +339,71 @@ class SWORD3Client(object):
                      binary_stream: typing.IO,
                      content_type: str,
                      digest: typing.Dict[str, str],
-                     filename: str=None,
+                     filename: str="untitled", # FIXME: an issue has been raised for this - what happens if no filename is provided
                      content_length: int=None):
 
-        digest_val = self._make_digest_header(digest)
-
-        # FIXME: an issue has been raised for this - what happens if no filename is provided
-        if filename is None:
-            filename = "untitled"
-
-        headers = {
-            "Content-Type": content_type,
-            "Content-Disposition": ContentDisposition.binary_upload(filename).serialise(),
-            "Digest": digest_val,
-            "Packaging": constants.PACKAGE_BINARY,
-        }
-
-        if content_length is not None:
-            headers["Content-Length"] = content_length
+        headers = self._binary_deposit_properties(content_type, constants.PACKAGE_BINARY, digest,
+                                                  ContentDisposition.binary_upload(filename), content_length)
 
         resp = self._http.put(file_url, binary_stream, headers)
 
         if resp.status_code == 204:
-            return DepositResponse(resp)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(file_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(file_url, resp, "Authentication failed replacing file")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(file_url, resp, "No File found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(file_url, resp, "The Object does not support file replacement")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(file_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
-        elif resp.status_code == 413:
-            raise exceptions.SWORD3MaxSizeExceeded(file_url, resp, "Your request exceeded the maximum deposit size for a single request against this server")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to replace file on object")
+            self._raise_for_status_code(resp, file_url, [400, 401, 403, 404, 405, 412, 413])
 
     def delete_file(self, file_url: str):
         resp = self._http.delete(file_url)
 
         if resp.status_code == 204:
-            return DepositResponse(resp)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(file_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(file_url, resp, "Authentication failed deleting file")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(file_url, resp, "No File found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(file_url, resp, "The Object does not support file delete")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(file_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to delete file from object")
+            self._raise_for_status_code(resp, file_url, [400, 401, 403, 404, 405, 412])
 
-    def delete_fileset(self, status_or_fileset_url: typing.Union[StatusDocument, str]) -> DepositResponse:
-        fileset_url = status_or_fileset_url
-        if isinstance(status_or_fileset_url, StatusDocument):
-            fileset_url = status_or_fileset_url.fileset_url
+    def delete_fileset(self, status_or_fileset_url: typing.Union[StatusDocument, str]) -> SWORDResponse:
 
+        fileset_url = self._get_url(status_or_fileset_url, "fileset_url")
         resp = self._http.delete(fileset_url)
 
         if resp.status_code == 204:
-            return DepositResponse(resp)
-        elif resp.status_code == 400:
-            raise exceptions.SWORD3BadRequest(fileset_url, resp, "The server did not understand the request")
-        elif resp.status_code in [401, 403]:
-            raise exceptions.SWORD3AuthenticationError(fileset_url, resp, "Authentication failed deleting fileset")
-        elif resp.status_code == 404:
-            raise exceptions.SWORD3NotFound(fileset_url, resp, "No FileSet found at requested URL")
-        elif resp.status_code == 405:
-            raise exceptions.SWORD3OperationNotAllowed(fileset_url, resp, "The Object does not support fileset delete")
-        elif resp.status_code == 412:
-            raise exceptions.SWORD3PreconditionFailed(fileset_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+            return SWORDResponse(resp)
         else:
-            raise exceptions.SWORD3WireError(fileset_url, resp, "Unexpected status code; unable to delete fileset from object")
+            self._raise_for_status_code(resp, fileset_url, [400, 401, 403, 404, 405, 412])
 
     ###########################################################
     ## Utility methods
     ###########################################################
+
+    def _get_url(self, source, url_property: str):
+        if isinstance(source, str):
+            return source
+        return getattr(source, url_property)
 
     def _make_digest_header(self, digest: typing.Dict[str, str]):
         digest_parts = []
         for k, v in digest.items():
             digest_parts.append("{x}={y}".format(x=k, y=v))
         return ", ".join(digest_parts)
+
+    def _raise_for_status_code(self, resp, request_url, expected=None, raise_generic_if_unexpected=True):
+        if expected is None:
+            expected = [400, 401, 403, 404, 405, 412, 413, 415]
+
+        if resp.status_code == 400 and 400 in expected:
+            raise exceptions.SWORD3BadRequest(request_url, resp, "The server did not understand the request")
+        elif (resp.status_code == 401 and 401 in expected) or (resp.status_code == 403 and 403 in expected):
+            raise exceptions.SWORD3AuthenticationError(request_url, resp, "Authentication or authorisation failed")
+        elif resp.status_code == 404 and 404 in expected:
+            raise exceptions.SWORD3NotFound(request_url, resp, "No resource found at requested URL")
+        elif resp.status_code == 405 and 405 in expected:
+            raise exceptions.SWORD3OperationNotAllowed(request_url, resp, "The resource does not support this operation")
+        elif resp.status_code == 412 and 412 in expected:
+            raise exceptions.SWORD3PreconditionFailed(request_url, resp,
+                                                      "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        elif resp.status_code == 413 and 413 in expected:
+            raise exceptions.SWORD3MaxSizeExceeded(request_url, resp,
+                                                   "Your request exceeded the maximum deposit size for a single request against this server")
+        elif resp.status_code == 415 and 415 in expected:
+            raise exceptions.SWORD3UnsupportedMediaType(request_url, resp, "The Content-Type that you sent was not supported by the server")
+        elif raise_generic_if_unexpected:
+            raise exceptions.SWORD3WireError(request_url, resp, "Unexpected status code; unable to carry out protocol operation")

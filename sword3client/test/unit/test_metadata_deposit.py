@@ -5,6 +5,7 @@ from sword3client.test.mocks.connection import MockHttpLayer
 from sword3client.exceptions import SWORD3WireError, SWORD3AuthenticationError, SWORD3NotFound
 
 from sword3common.models.metadata import Metadata
+from sword3common.models.service import ServiceDocument
 from sword3common.test.fixtures.status import StatusFixtureFactory
 from sword3common.lib.seamless import SeamlessException
 
@@ -25,8 +26,11 @@ class TestService(TestCase):
         metadata.add_dcterms_field("rights", "All of them")
         metadata.add_field("custom", "entry")
 
+        sd = ServiceDocument()
+        sd.service_url = SD_URL
+
         try:
-            dr = client.create_object_with_metadata(SD_URL, metadata)
+            dr = client.create_object_with_metadata(sd, metadata)
         except SeamlessException as e:
             print(e.message)
 
