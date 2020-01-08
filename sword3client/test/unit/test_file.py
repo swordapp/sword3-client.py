@@ -49,3 +49,8 @@ class TestFile(unittest.TestCase):
 
         client = SWORD3Client(http=MockHttpLayer(204))
         dr = client.replace_file(FILE_URL, data_in, "application/octet-stream", {constants.DIGEST_SHA_256 : d1.digest()})
+
+    def test_03_delete_file(self):
+        FILE_URL = "http://example.com/objects/10/files/1"
+        client = SWORD3Client(http=MockHttpLayer(204))
+        dr = client.delete_file(FILE_URL)

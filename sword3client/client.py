@@ -594,6 +594,26 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to replace file on object")
 
+    def delete_file(self, file_url: str):
+        resp = self._http.delete(file_url)
+
+        if resp.status_code == 204:
+            return DepositResponse(resp)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(file_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(file_url, resp, "Authentication failed deleting file")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(file_url, resp, "No File found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(file_url, resp, "The Object does not support file delete")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(file_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        else:
+            raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to delete file from object")
+
+
+
     def add_to_object(self):
         pass
 
@@ -606,8 +626,6 @@ class SWORD3Client(object):
     def delete_fileset(self):
         pass
 
-    def delete_file(self):
-        pass
 
     ###########################################################
     ## Utility methods
