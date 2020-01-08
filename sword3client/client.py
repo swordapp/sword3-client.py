@@ -523,6 +523,9 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(object_url, resp, "Unexpected status code; unable to retrieve object")
 
+    def delete_object(self):
+        pass
+
     #################################################
     ## Individual file protocol operations
     #################################################
@@ -612,20 +615,27 @@ class SWORD3Client(object):
         else:
             raise exceptions.SWORD3WireError(file_url, resp, "Unexpected status code; unable to delete file from object")
 
+    def delete_fileset(self, status_or_fileset_url: typing.Union[StatusDocument, str]) -> DepositResponse:
+        fileset_url = status_or_fileset_url
+        if isinstance(status_or_fileset_url, StatusDocument):
+            fileset_url = status_or_fileset_url.fileset_url
 
+        resp = self._http.delete(fileset_url)
 
-    def add_to_object(self):
-        pass
-
-    def delete_object(self):
-        pass
-
-    def replace_fileset(self):
-        pass
-
-    def delete_fileset(self):
-        pass
-
+        if resp.status_code == 204:
+            return DepositResponse(resp)
+        elif resp.status_code == 400:
+            raise exceptions.SWORD3BadRequest(fileset_url, resp, "The server did not understand the request")
+        elif resp.status_code in [401, 403]:
+            raise exceptions.SWORD3AuthenticationError(fileset_url, resp, "Authentication failed deleting fileset")
+        elif resp.status_code == 404:
+            raise exceptions.SWORD3NotFound(fileset_url, resp, "No FileSet found at requested URL")
+        elif resp.status_code == 405:
+            raise exceptions.SWORD3OperationNotAllowed(fileset_url, resp, "The Object does not support fileset delete")
+        elif resp.status_code == 412:
+            raise exceptions.SWORD3PreconditionFailed(fileset_url, resp, "Your request could not be processed as-is, there may be inconsistencies in your request parameters")
+        else:
+            raise exceptions.SWORD3WireError(fileset_url, resp, "Unexpected status code; unable to delete fileset from object")
 
     ###########################################################
     ## Utility methods

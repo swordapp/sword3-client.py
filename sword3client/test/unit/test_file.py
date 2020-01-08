@@ -54,3 +54,8 @@ class TestFile(unittest.TestCase):
         FILE_URL = "http://example.com/objects/10/files/1"
         client = SWORD3Client(http=MockHttpLayer(204))
         dr = client.delete_file(FILE_URL)
+
+    def test_03_delete_fileset(self):
+        FS_URL = "http://example.com/objects/10/files"
+        client = SWORD3Client(http=MockHttpLayer(204))
+        dr = client.delete_fileset(FS_URL)
