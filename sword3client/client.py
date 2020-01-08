@@ -452,7 +452,8 @@ class SWORD3Client(object):
                      binary_stream: typing.IO,
                      content_type: str,
                      digest: typing.Dict[str, str],
-                     filename: str=None):
+                     filename: str=None,
+                     content_length: int=None):
 
         digest_val = self._make_digest_header(digest)
 
@@ -466,6 +467,9 @@ class SWORD3Client(object):
             "Digest": digest_val,
             "Packaging": constants.PACKAGE_BINARY,
         }
+
+        if content_length is not None:
+            headers["Content-Length"] = content_length
 
         resp = self._http.put(file_url, binary_stream, headers)
 
