@@ -1,6 +1,7 @@
 class HttpLayer(object):
-    def __init__(self, auth=None):
+    def __init__(self, auth=None, headers=None):
         self._auth = auth
+        self._headers = headers
 
     def get(self, url, headers=None, stream=False):
         raise NotImplementedError

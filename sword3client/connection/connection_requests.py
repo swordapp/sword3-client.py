@@ -3,20 +3,34 @@ import requests
 
 
 class RequestsHttpLayer(HttpLayer):
-    def __init__(self, auth=None):
-        super(RequestsHttpLayer, self).__init__(auth)
+    def __init__(self, auth=None, headers=None):
+        super(RequestsHttpLayer, self).__init__(auth, headers)
 
     def get(self, url, headers=None, stream=False):
+        headers = self._get_headers(headers)
         return RequestsHttpResponse(requests.get(url, stream=stream, headers=headers))
 
     def put(self, url, data, headers=None):
+        headers = self._get_headers(headers)
         return RequestsHttpResponse(requests.put(url, data, headers=headers))
 
     def post(self, url, data, headers=None):
+        headers = self._get_headers(headers)
         return RequestsHttpResponse(requests.post(url, data, headers=headers))
 
     def delete(self, url):
-        return RequestsHttpResponse(requests.delete(url))
+        headers = self._get_headers(None)
+        return RequestsHttpResponse(requests.delete(url, headers=headers))
+
+    def _get_headers(self, headers):
+        if headers is None and self._headers is None:
+            return None
+        if headers is None:
+            return self._headers
+        if self._headers is None:
+            return headers
+        headers.update(self._headers)
+        return headers
 
 
 class RequestsHttpResponse(HttpResponse):
