@@ -1,5 +1,5 @@
 from sword3client.connection import HttpLayer, HttpResponse
-from sword3common.test.fixtures import ServiceFixtureFactory
+from sword3common.test.fixtures import ServiceFixtureFactory, StatusFixtureFactory, MetadataFixtureFactory
 
 import json
 
@@ -62,4 +62,25 @@ class HttpMockFactory(object):
     def get_service(cls):
         status = 200
         body = json.dumps(ServiceFixtureFactory.service_document())
+        return MockHttpLayer(status, body)
+
+    @classmethod
+    def create_object_with_metadata(cls):
+        status = 201
+        body = json.dumps(StatusFixtureFactory.status_document())
+        headers = {"Location": "http://example.com/object/10"}
+        return MockHttpLayer(status, body, headers)
+
+    @classmethod
+    def get_object(cls):
+        status = 200
+        body = json.dumps(StatusFixtureFactory.status_document())
+        return MockHttpLayer(status, body)
+
+    @classmethod
+    def get_metadata(cls, metadata=None):
+        status = 200
+        body = json.dumps(MetadataFixtureFactory.metadata())
+        if metadata is not None:
+            body = json.dumps(metadata.data)
         return MockHttpLayer(status, body)

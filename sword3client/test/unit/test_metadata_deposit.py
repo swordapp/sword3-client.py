@@ -2,9 +2,10 @@ from unittest import TestCase
 
 from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
+from sword3client.exceptions import SWORD3AuthenticationError, SWORD3NotFound, SWORD3WireError
 
 from sword3common import Metadata, ServiceDocument
-from sword3common.test.fixtures import StatusFixtureFactory
+from sword3common.test.fixtures import StatusFixtureFactory, MetadataFixtureFactory
 from sword3common.exceptions import SeamlessException
 
 import json
@@ -68,3 +69,32 @@ class TestService(TestCase):
         MD_URL = "http://example.com/obect/10/metadata"
         client = SWORD3Client(http=MockHttpLayer(204))
         dr = client.delete_metadata(MD_URL)
+
+    def test_05_get_metadata(self):
+        MD_URL = "http://example.com/objects/10/metadata"
+
+        client = SWORD3Client(http=MockHttpLayer(200, json.dumps(MetadataFixtureFactory.metadata())))
+        obj = client.get_metadata(MD_URL)
+        assert isinstance(obj, Metadata)
+
+        client = SWORD3Client(http=MockHttpLayer(401))
+        with self.assertRaises(SWORD3AuthenticationError):
+            try:
+                obj = client.get_metadata(MD_URL)
+            except SWORD3AuthenticationError as e:
+                assert e.request_url == MD_URL
+                assert e.response is not None
+                assert e.message is not None
+                raise
+
+        client = SWORD3Client(http=MockHttpLayer(403))
+        with self.assertRaises(SWORD3AuthenticationError):
+            obj = client.get_metadata(MD_URL)
+
+        client = SWORD3Client(http=MockHttpLayer(404))
+        with self.assertRaises(SWORD3NotFound):
+            obj = client.get_metadata(MD_URL)
+
+        client = SWORD3Client(http=MockHttpLayer(405))
+        with self.assertRaises(SWORD3WireError):
+            obj = client.get_metadata(MD_URL)

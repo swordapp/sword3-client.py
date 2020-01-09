@@ -15,6 +15,9 @@ class SWORD3Client(object):
     def __init__(self, http=None):
         self._http = http if http is not None else RequestsHttpLayer()
 
+    def set_http_layer(self, http):
+        self._http = http
+
     def get_service(self, service_url:str) -> ServiceDocument:
         resp = self._http.get(service_url)
         if resp.status_code == 200:
@@ -44,7 +47,7 @@ class SWORD3Client(object):
         else:
             self._raise_for_status_code(resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415])
 
-    def get_metadata(self, status_or_metadata_url: typing.Union[ServiceDocument, str]) -> Metadata:
+    def get_metadata(self, status_or_metadata_url: typing.Union[StatusDocument, str]) -> Metadata:
 
         metadata_url = self._get_url(status_or_metadata_url, "metadata_url")
         resp = self._http.get(metadata_url)
