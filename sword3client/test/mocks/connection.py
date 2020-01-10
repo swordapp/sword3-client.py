@@ -79,6 +79,13 @@ class HttpMockFactory(object):
         return MockHttpLayer(status, body, headers)
 
     @classmethod
+    def create_object_with_package(cls, links=None):
+        status = 201
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        headers = {"Location": "http://example.com/object/10"}
+        return MockHttpLayer(status, body, headers)
+
+    @classmethod
     def get_object(cls):
         status = 200
         body = json.dumps(StatusFixtureFactory.status_document())
