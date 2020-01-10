@@ -103,3 +103,23 @@ class HttpMockFactory(object):
     def get_file(cls, stream):
         status = 200
         return MockHttpLayer(status, None, None, stream)
+
+    @classmethod
+    def append_metadata(cls):
+        status = 200
+        body = json.dumps(StatusFixtureFactory.status_document())
+        return MockHttpLayer(status, body)
+
+    @classmethod
+    def add_binary(cls, links=None):
+        status = 200
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        headers = {"Location": "http://example.com/object/10/file/binary1"}
+        return MockHttpLayer(status, body, headers)
+
+    @classmethod
+    def add_package(cls, links=None):
+        status = 200
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        headers = {"Location": "http://example.com/object/10/file/package1"}
+        return MockHttpLayer(status, body, headers)

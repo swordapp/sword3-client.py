@@ -183,3 +183,114 @@ class TestInvenio(TestCase):
 
         d2 = paths.sha256(data_out)
         assert d.hexdigest() == d2.hexdigest()
+
+    def test_05_append_metadata_binary_package(self):
+        # 1. Create an object with the metadata
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+
+        url = dr.location
+
+        # 2. Append some metadata
+        metadata2 = Metadata()
+        metadata2.add_dc_field("abstract", "This is an abstract")
+
+        client.set_http_layer(HTTP_FACTORY.append_metadata())
+        dr2 = client.append_metadata(url, metadata2)
+
+        assert dr2.status_code == 200
+        assert dr2.location is not None
+
+        status = dr2.status_document
+        assert status is not None
+        status.verify_against_struct()
+
+        # 3. Check that metadata is appended correctly
+        metadata.add_dc_field("abstract", "This is an abstract")
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata))
+        metadata3 = client.get_metadata(status)
+
+        assert metadata.get_dc_field("creator") == metadata3.get_dc_field("creator")
+        assert metadata.get_dcterms_field("rights") == metadata3.get_dcterms_field("rights")
+        assert metadata.get_field("custom") == metadata3.get_field("custom")
+        assert metadata.get_field("abstract") == metadata3.get_field("abstract")
+
+        # 4. add a binary file
+        bytes = b"this is another random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {
+            constants.DIGEST_SHA_256: d.digest()
+        }
+        stream = BytesIO(bytes)
+
+        client = SWORD3Client(HTTP_FACTORY.add_binary(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            }
+        ]))
+        dr3 = client.add_binary(status, stream, "test.bin", digest, content_length,
+                                content_type="text/plain")
+
+        assert dr3.status_code == 200
+        assert dr3.location is not None
+        status = dr3.status_document
+        assert status is not None
+        status.verify_against_struct()
+
+        # 5. Retrieve the file again
+        file_url = dr3.location
+        client.set_http_layer(HTTP_FACTORY.get_file(BytesIO(bytes)))
+        with client.get_file(file_url) as download:
+            received = download.read()
+        assert received == bytes
+
+        # 6. Append a package
+        bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
+        d = paths.sha256(bag)
+        digest = {
+            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+        }
+        file_size = os.path.getsize(bag)
+
+        client = SWORD3Client(HTTP_FACTORY.add_package(links=[
+            {
+                "@id": "http://example.com/object/10/test.zip",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "application/zip",
+                "packaging": constants.PACKAGE_SWORDBAGIT
+            },
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": constants.PACKAGE_BINARY
+            }
+        ]))
+
+        with open(bag, "rb") as stream:
+            dr = client.add_package(status, stream, "test.zip", digest,
+                                   content_type="application/zip",
+                                   content_length=file_size,
+                                   packaging=constants.PACKAGE_SWORDBAGIT)
+
+        assert dr.status_code == 200
+        assert dr.location is not None
+
+        status = dr.status_document
+        assert status is not None
+        status.verify_against_struct()
+
+        assert len(status.links) >= 2
+        ods = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])
+        assert len(ods) == 2
+
+        # we don't bother retrieving the file, we've done plenty of that in other bits of the test
