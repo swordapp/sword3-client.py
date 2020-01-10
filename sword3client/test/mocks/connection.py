@@ -72,6 +72,13 @@ class HttpMockFactory(object):
         return MockHttpLayer(status, body, headers)
 
     @classmethod
+    def create_object_with_binary(cls, links=None):
+        status = 201
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        headers = {"Location": "http://example.com/object/10"}
+        return MockHttpLayer(status, body, headers)
+
+    @classmethod
     def get_object(cls):
         status = 200
         body = json.dumps(StatusFixtureFactory.status_document())
@@ -84,3 +91,8 @@ class HttpMockFactory(object):
         if metadata is not None:
             body = json.dumps(metadata.data)
         return MockHttpLayer(status, body)
+
+    @classmethod
+    def get_file(cls, stream):
+        status = 200
+        return MockHttpLayer(status, None, None, stream)

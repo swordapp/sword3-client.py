@@ -27,9 +27,12 @@ class HttpLayerFactory(object):
             return object.__getattribute__(self, item)
 
         if not self._use_mock:
-            return self._default
+            return self.get_default
 
         return getattr(HttpMockFactory, item)
+
+    def get_default(self, *args, **kwargs):
+        return self._default
 
 HTTP_FACTORY = HttpLayerFactory(INVENIO_HTTP_LAYER, MOCK_MODE)
 
@@ -72,13 +75,43 @@ class TestInvenio(TestCase):
         assert metadata.get_dcterms_field("rights") == metadata2.get_dcterms_field("rights")
         assert metadata.get_field("custom") == metadata2.get_field("custom")
 
-    def test_01_create_object_with_binary(self):
-        client = SWORD3Client()
-
+    def test_03_create_object_with_binary(self):
+        # 1. Create the object with a binary stream
         bytes = b"this is a random stream of bytes"
+        content_length = len(bytes)
         d = hashlib.sha256(bytes)
-        digest = "{x}={y}".format(x=constants.DIGEST_SHA_256, y=base64.b64encode(d.digest()))
+        digest = {
+            constants.DIGEST_SHA_256: d.digest()
+        }
         stream = BytesIO(bytes)
 
-        dr = client.create_object_with_binary(SD_URL, stream, "test.bin", digest)
-        print(dr.location)
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_binary(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": ["http://purl.org/net/sword/3.0/terms/originalDeposit"],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            },
+        ]))
+        dr = client.create_object_with_binary(SERVICE_URL, stream, "test.bin", digest, content_length, content_type="text/plain")
+
+        assert dr.status_code == 201
+        assert dr.location is not None
+
+        status = dr.status_document
+        assert status is not None
+        status.verify_against_struct()
+
+        links = status.links
+        assert len(links) == 1
+        link = links[0]
+
+        assert "@id" in link
+        assert "http://purl.org/net/sword/3.0/terms/originalDeposit" in link.get("rel")
+        assert link.get("contentType") == "text/plain"
+
+        url = link.get("@id")
+        client.set_http_layer(HTTP_FACTORY.get_file(BytesIO(bytes)))
+        with client.get_file(url) as download:
+            received = download.read()
+        assert received == bytes
