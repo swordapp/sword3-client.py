@@ -111,6 +111,11 @@ class HttpMockFactory(object):
         return MockHttpLayer(status, body)
 
     @classmethod
+    def replace_metadata(cls):
+        status = 204
+        return MockHttpLayer(status)
+
+    @classmethod
     def add_binary(cls, links=None):
         status = 200
         body = json.dumps(StatusFixtureFactory.status_document(links))
@@ -123,3 +128,8 @@ class HttpMockFactory(object):
         body = json.dumps(StatusFixtureFactory.status_document(links))
         headers = {"Location": "http://example.com/object/10/file/package1"}
         return MockHttpLayer(status, body, headers)
+
+    @classmethod
+    def replace_file(cls):
+        status = 204
+        return MockHttpLayer(status)

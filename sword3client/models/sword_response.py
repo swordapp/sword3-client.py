@@ -7,6 +7,8 @@ import json
 class SWORDResponse(object):
     def __init__(self, http_response):
         self._http_response = http_response
+        self._status_document = None
+
         body = http_response.body
         if body:
             data = json.loads(body)

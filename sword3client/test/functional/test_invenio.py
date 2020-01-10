@@ -294,3 +294,73 @@ class TestInvenio(TestCase):
         assert len(ods) == 2
 
         # we don't bother retrieving the file, we've done plenty of that in other bits of the test
+
+    def test_06_replace_metadata_binary(self):
+        # 1. Create an object with the metadata
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        status = dr.status_document
+
+        # 2. Add a binary file to it
+        bytes = b"this is another random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {
+            constants.DIGEST_SHA_256: d.digest()
+        }
+        stream = BytesIO(bytes)
+
+        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": constants.PACKAGE_BINARY
+            }
+        ]))
+        dr2 = client.add_binary(status, stream, "test.bin", digest, content_length,
+                                content_type="text/plain")
+
+        # 3. Replace the metadata
+        metadata2 = Metadata()
+        metadata2.add_dc_field("title", "My replacement")
+
+        client.set_http_layer(HTTP_FACTORY.replace_metadata())
+        dr3 = client.replace_metadata(status, metadata2)
+
+        assert dr3.status_code == 204
+        assert dr3.location is None
+        assert dr3.status_document is None
+
+        # 4. Retrieve the metadata to check it was replaced
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata2))
+        metadata3 = client.get_metadata(status)
+
+        assert metadata3.get_dc_field("creator") is None
+        assert metadata3.get_dcterms_field("rights") is None
+        assert metadata3.get_field("custom") is None
+        assert metadata2.get_dc_field("title") == metadata3.get_dc_field("title")
+
+        # 5. Replace the binary file
+        bytes2 = b"this is a replacement stream of bytes"
+        content_length2 = len(bytes2)
+        d2 = hashlib.sha256(bytes2)
+        digest2 = {
+            constants.DIGEST_SHA_256: d2.digest()
+        }
+        stream2 = BytesIO(bytes2)
+
+        client.set_http_layer(HTTP_FACTORY.replace_file())
+        file_url = dr2.location
+        dr4 = client.replace_file(file_url, stream2, "text/plain", digest2, "test.bin", content_length2)
+
+        # 6. Retrieve the file again
+        client.set_http_layer(HTTP_FACTORY.get_file(BytesIO(bytes2)))
+        with client.get_file(file_url) as download:
+            received = download.read()
+        assert received == bytes2
