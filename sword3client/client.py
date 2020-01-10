@@ -358,6 +358,27 @@ class SWORD3Client(object):
         else:
             self._raise_for_status_code(resp, file_url, [400, 401, 403, 404, 405, 412])
 
+    ###########################################################
+    ## Fileset protocol operations
+    ###########################################################
+
+    def replace_fileset_with_binary(self,
+                                    status_or_fileset_url: typing.Union[StatusDocument, str],
+                                    binary_stream: typing.IO,
+                                    filename: str,
+                                    digest: typing.Dict[str, str],
+                                    content_length: int = None,
+                                    content_type: str = None,
+                                    ) -> SWORDResponse:
+        fileset_url = self._get_url(status_or_fileset_url, "fileset_url")
+        headers = self._binary_deposit_properties(content_type, None, digest, ContentDisposition.binary_upload(filename), content_length)
+        resp = self._http.put(fileset_url, binary_stream, headers)
+
+        if resp.status_code in [202, 204]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(resp, fileset_url, [400, 401, 403, 404, 405, 412, 413])
+
     def delete_fileset(self, status_or_fileset_url: typing.Union[StatusDocument, str]) -> SWORDResponse:
 
         fileset_url = self._get_url(status_or_fileset_url, "fileset_url")

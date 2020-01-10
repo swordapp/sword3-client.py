@@ -133,3 +133,8 @@ class HttpMockFactory(object):
     def replace_file(cls):
         status = 204
         return MockHttpLayer(status)
+
+    @classmethod
+    def replace_fileset(cls):
+        status = 204
+        return MockHttpLayer(status)
