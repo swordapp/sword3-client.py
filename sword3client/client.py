@@ -47,6 +47,22 @@ class SWORD3Client(object):
         else:
             self._raise_for_status_code(resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415])
 
+    def replace_object_with_metadata(self,
+                                     status_or_object_url: typing.Union[ServiceDocument, str],
+                                     metadata: Metadata,
+                                     digest: typing.Dict[str, str]=None,
+                                     metadata_format: str=None
+                                    ) -> SWORDResponse:
+
+        object_url = self._get_url(status_or_object_url, "object_url")
+        body_bytes, headers = self._metadata_deposit_properties(metadata, metadata_format, digest)
+        resp = self._http.put(object_url, body_bytes, headers)
+
+        if resp.status_code in [200, 202]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 405, 412, 413, 415])
+
     def get_metadata(self, status_or_metadata_url: typing.Union[StatusDocument, str]) -> Metadata:
 
         metadata_url = self._get_url(status_or_metadata_url, "metadata_url")

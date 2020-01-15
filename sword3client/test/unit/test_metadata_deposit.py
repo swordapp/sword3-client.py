@@ -98,3 +98,19 @@ class TestService(TestCase):
         client = SWORD3Client(http=MockHttpLayer(405))
         with self.assertRaises(SWORD3WireError):
             obj = client.get_metadata(MD_URL)
+
+    def test_06_replace_object_with_metadata(self):
+        OBJ_URL = "http://example.com/object/10"
+        BODY = json.dumps(StatusFixtureFactory.status_document())
+
+        client = SWORD3Client(http=MockHttpLayer(200, BODY))
+
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        try:
+            dr = client.replace_object_with_metadata(OBJ_URL, metadata)
+        except SeamlessException as e:
+            print(e.message)
