@@ -86,9 +86,9 @@ class HttpMockFactory(object):
         return MockHttpLayer(status, body, headers)
 
     @classmethod
-    def get_object(cls):
+    def get_object(cls, links=None):
         status = 200
-        body = json.dumps(StatusFixtureFactory.status_document())
+        body = json.dumps(StatusFixtureFactory.status_document(links))
         return MockHttpLayer(status, body)
 
     @classmethod
@@ -135,6 +135,6 @@ class HttpMockFactory(object):
         return MockHttpLayer(status)
 
     @classmethod
-    def replace_fileset(cls):
+    def replace_fileset_with_binary(cls):
         status = 204
         return MockHttpLayer(status)

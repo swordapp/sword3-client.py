@@ -364,3 +364,81 @@ class TestInvenio(TestCase):
         with client.get_file(file_url) as download:
             received = download.read()
         assert received == bytes2
+
+    def test_07_replace_fileset_with_binary(self):
+        # 1. Create the object with a binary stream
+        bytes = b"this is a random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {
+            constants.DIGEST_SHA_256: d.digest()
+        }
+        stream = BytesIO(bytes)
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_binary(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            },
+        ]))
+        dr = client.create_object_with_binary(SERVICE_URL, stream, "test.bin", digest, content_length,
+                                              content_type="text/plain")
+
+        # 2. add another binary file
+        bytes2 = b"this is another random stream of bytes"
+        content_length2 = len(bytes2)
+        d2 = hashlib.sha256(bytes2)
+        digest2 = {
+            constants.DIGEST_SHA_256: d2.digest()
+        }
+        stream2 = BytesIO(bytes2)
+
+        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            },
+            {
+                "@id": "http://example.com/object/10/test2.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            }
+        ]))
+        dr2 = client.add_binary(dr.location, stream2, "test2.bin", digest2, content_length2,
+                                content_type="text/plain")
+
+        # check that we have 2 files
+        status = dr2.status_document
+        assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 2
+
+        # 3. replace the fileset with a new binary
+        bytes3 = b"this is a replacement stream of bytes"
+        content_length3 = len(bytes3)
+        d3 = hashlib.sha256(bytes3)
+        digest3 = {
+            constants.DIGEST_SHA_256: d3.digest()
+        }
+        stream3 = BytesIO(bytes3)
+
+        client.set_http_layer(HTTP_FACTORY.replace_fileset_with_binary())
+        dr3 = client.replace_fileset_with_binary(status.fileset_url, stream3, "test3.bin", digest3, content_length3,
+                                content_type="text/plain")
+
+        assert dr3.status_code == 204
+
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[
+            {
+                "@id": "http://example.com/object/10/test3.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            }
+        ]))
+
+        status = client.get_object(status)
+        assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1

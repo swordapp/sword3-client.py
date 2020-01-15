@@ -68,5 +68,5 @@ class TestFile(unittest.TestCase):
 
         d1 = paths.sha256(data_in)
 
-        client = SWORD3Client(http=HttpMockFactory.replace_fileset())
+        client = SWORD3Client(http=HttpMockFactory.replace_fileset_with_binary())
         dr = client.replace_fileset_with_binary(FILESET_URL, data_in, "application/octet-stream", {constants.DIGEST_SHA_256: d1.digest()})
