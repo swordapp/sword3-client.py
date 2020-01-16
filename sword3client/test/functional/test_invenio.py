@@ -442,3 +442,90 @@ class TestInvenio(TestCase):
 
         status = client.get_object(status)
         assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1
+
+    def test_08_replace_object_metadata_binary_package(self):
+        # 1. Create an object with some metadata
+        metadata = Metadata()
+        metadata.add_dc_field("title", "Replace Test")
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        status = dr.status_document
+
+        # 2. Replace the object with a binary file
+        bytes = b"this is a random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {
+            constants.DIGEST_SHA_256: d.digest()
+        }
+        stream = BytesIO(bytes)
+
+        client.set_http_layer(HTTP_FACTORY.replace_object_with_binary())
+        dr2 = client.replace_object_with_binary(status, stream, "test.bin", digest, content_length,
+                                              content_type="text/plain")
+
+        # 3. Check the object and the metadata
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            }
+        ]))
+
+        status = client.get_object(status)
+        assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1
+
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
+        metadata = client.get_metadata(status)
+        assert metadata.get_dc_field("title") is None
+
+        # 4. Replace the object with metadata
+        metadata2 = Metadata()
+        metadata2.add_dc_field("title", "More metadata")
+
+        client.set_http_layer(HTTP_FACTORY.replace_object_with_metadata(links=[]))
+        dr3 = client.replace_object_with_metadata(status, metadata2)
+
+        # 5. check that the files are gone and the new metadata is in
+        status = dr3.status_document
+        assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 0
+
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=metadata2))
+        metadata3 = client.get_metadata(status)
+        assert metadata3.get_dc_field("title") == metadata2.get_dc_field("title")
+
+        # 6. replace the object with packaged content
+        bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
+        d = paths.sha256(bag)
+        digest = {
+            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
+        }
+        file_size = os.path.getsize(bag)
+
+        client.set_http_layer(HTTP_FACTORY.replace_object_with_package())
+
+        with open(bag, "rb") as stream:
+            dr4 = client.replace_object_with_package(status, stream, "test.zip", digest,
+                                    content_type="application/zip",
+                                    content_length=file_size,
+                                    packaging=constants.PACKAGE_SWORDBAGIT)
+
+        # 7. Check the object and the metadata
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[
+            {
+                "@id": "http://example.com/object/10/test.zip",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "application/zip",
+                "packaging": constants.PACKAGE_SWORDBAGIT
+            }
+        ]))
+
+        status = client.get_object(status)
+        assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1
+
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
+        metadata = client.get_metadata(status)
+        assert metadata.get_dc_field("title") is None

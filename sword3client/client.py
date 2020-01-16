@@ -48,7 +48,7 @@ class SWORD3Client(object):
             self._raise_for_status_code(resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415])
 
     def replace_object_with_metadata(self,
-                                     status_or_object_url: typing.Union[ServiceDocument, str],
+                                     status_or_object_url: typing.Union[StatusDocument, str],
                                      metadata: Metadata,
                                      digest: typing.Dict[str, str]=None,
                                      metadata_format: str=None

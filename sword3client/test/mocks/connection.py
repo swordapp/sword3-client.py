@@ -138,3 +138,21 @@ class HttpMockFactory(object):
     def replace_fileset_with_binary(cls):
         status = 204
         return MockHttpLayer(status)
+
+    @classmethod
+    def replace_object_with_metadata(cls, links=None):
+        status = 200
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        return MockHttpLayer(status, body)
+
+    @classmethod
+    def replace_object_with_binary(cls, links=None):
+        status = 200
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        return MockHttpLayer(status, body)
+
+    @classmethod
+    def replace_object_with_package(cls, links=None):
+        status = 200
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        return MockHttpLayer(status, body)
