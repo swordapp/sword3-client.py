@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from sword3client import SWORD3Client
+from sword3client import SWORD3Client, exceptions
 from sword3client.connection.connection_requests import RequestsHttpLayer
 from sword3client.test.mocks.connection import HttpMockFactory
 from sword3client.lib import paths
@@ -529,3 +529,117 @@ class TestInvenio(TestCase):
         client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
         metadata = client.get_metadata(status)
         assert metadata.get_dc_field("title") is None
+
+    def test_09_delete(self):
+        # 1. Create an object with the metadata
+        metadata = Metadata()
+        metadata.add_dc_field("title", "Test delete")
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+
+        status = dr.status_document
+
+        # 2. Add 2 binary files
+        bytes = b"this is a random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {
+            constants.DIGEST_SHA_256: d.digest()
+        }
+        stream = BytesIO(bytes)
+
+        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            }
+        ]))
+        dr2 = client.add_binary(status, stream, "test.bin", digest, content_length,
+                                content_type="text/plain")
+
+        bytes2 = b"this is another random stream of bytes"
+        content_length2 = len(bytes2)
+        d2 = hashlib.sha256(bytes2)
+        digest2 = {
+            constants.DIGEST_SHA_256: d2.digest()
+        }
+        stream2 = BytesIO(bytes2)
+
+        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
+            {
+                "@id": "http://example.com/object/10/test.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            },
+            {
+                "@id": "http://example.com/object/10/test2.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            }
+        ]))
+        dr3 = client.add_binary(status, stream2, "test2.bin", digest2, content_length2,
+                                content_type="text/plain")
+        status = dr3.status_document
+
+
+        # 3. Delete the object metadata
+        client.set_http_layer(HTTP_FACTORY.delete_metadata())
+        dr4 = client.delete_metadata(status)
+
+        assert dr4.status_code == 204
+
+        # 4. Check that the metadata is gone
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
+        metadata2 = client.get_metadata(status)
+        assert metadata2.get_dc_field("title") is None
+
+        # 5. Delete one of the files
+        file_url = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])[0].get("@id")
+        client.set_http_layer(HTTP_FACTORY.delete_file())
+        dr5 = client.delete_file(file_url)
+
+        assert dr5.status_code == 204
+
+        # 6. Retrieve the updated status and check the file is gone
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[
+            {
+                "@id": "http://example.com/object/10/test2.bin",
+                "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                "contentType": "text/plain",
+                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
+            }
+        ]))
+        status = client.get_object(status)
+
+        ods = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])
+        assert len(ods) == 1
+        assert file_url not in [od.get("@id") for od in ods]
+
+        # 7. Delete the fileset
+        client.set_http_layer(HTTP_FACTORY.delete_fileset())
+        dr6 = client.delete_fileset(status.fileset_url)
+
+        assert dr6.status_code == 204
+
+        # 8. Retrieve the updated status and check the files are all gone
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[]))
+        status = client.get_object(status)
+
+        ods = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])
+        assert len(ods) == 0
+
+        # 9. Delete the entire object
+        client.set_http_layer(HTTP_FACTORY.delete_object())
+        dr7 = client.delete_object(status)
+
+        assert dr7.status_code == 204
+
+        # 10. Attempt to retrieve the object
+        client.set_http_layer(HTTP_FACTORY.get_object(not_found=True))
+        with self.assertRaises(exceptions.SWORD3NotFound):
+            client.get_object(status)

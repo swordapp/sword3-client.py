@@ -86,7 +86,9 @@ class HttpMockFactory(object):
         return MockHttpLayer(status, body, headers)
 
     @classmethod
-    def get_object(cls, links=None):
+    def get_object(cls, links=None, not_found=False):
+        if not_found:
+            return MockHttpLayer(404)
         status = 200
         body = json.dumps(StatusFixtureFactory.status_document(links))
         return MockHttpLayer(status, body)
@@ -156,3 +158,23 @@ class HttpMockFactory(object):
         status = 200
         body = json.dumps(StatusFixtureFactory.status_document(links))
         return MockHttpLayer(status, body)
+
+    @classmethod
+    def delete_metadata(cls):
+        status = 204
+        return MockHttpLayer(status)
+
+    @classmethod
+    def delete_file(cls):
+        status = 204
+        return MockHttpLayer(status)
+
+    @classmethod
+    def delete_fileset(cls):
+        status = 204
+        return MockHttpLayer(status)
+
+    @classmethod
+    def delete_object(cls):
+        status = 204
+        return MockHttpLayer(status)
