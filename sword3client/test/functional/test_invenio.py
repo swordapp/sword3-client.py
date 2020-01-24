@@ -280,7 +280,9 @@ class TestInvenio(TestCase):
         status.verify_against_struct()
 
         # 5. Retrieve the file again
-        file_url = dr3.location
+        file_url = dr3.status_document.list_links(
+            ["http://purl.org/net/sword/3.0/terms/fileSetFile"]
+        )[0]["@id"]
         client.set_http_layer(HTTP_FACTORY.get_file(BytesIO(bytes)))
         with client.get_file(file_url) as download:
             received = download.read()
@@ -403,7 +405,9 @@ class TestInvenio(TestCase):
         stream2 = BytesIO(bytes2)
 
         client.set_http_layer(HTTP_FACTORY.replace_file())
-        file_url = dr2.location
+        file_url = dr2.status_document.list_links(
+            rels=["http://purl.org/net/sword/3.0/terms/fileSetFile"]
+        )[0]["@id"]
         dr4 = client.replace_file(
             file_url, stream2, "text/plain", digest2, "test.bin", content_length2
         )
