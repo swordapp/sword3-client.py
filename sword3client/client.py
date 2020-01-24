@@ -42,12 +42,13 @@ class SWORD3Client(object):
         metadata: Metadata,
         digest: typing.Dict[str, str] = None,
         metadata_format: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         # get the service url.  The first argument may be the URL or the ServiceDocument
         service_url = self._get_url(service, "service_url")
         body_bytes, headers = self._metadata_deposit_properties(
-            metadata, metadata_format, digest
+            metadata, metadata_format, digest, in_progress=in_progress
         )
         resp = self._http.post(service_url, body_bytes, headers)
 
@@ -64,11 +65,12 @@ class SWORD3Client(object):
         metadata: Metadata,
         digest: typing.Dict[str, str] = None,
         metadata_format: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         object_url = self._get_url(status_or_object_url, "object_url")
         body_bytes, headers = self._metadata_deposit_properties(
-            metadata, metadata_format, digest
+            metadata, metadata_format, digest, in_progress=in_progress
         )
         resp = self._http.put(object_url, body_bytes, headers)
 
@@ -105,11 +107,12 @@ class SWORD3Client(object):
         metadata: Metadata,
         digest: typing.Dict[str, str] = None,
         metadata_format: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         object_url = self._get_url(status_or_object_url, "object_url")
         body_bytes, headers = self._metadata_deposit_properties(
-            metadata, metadata_format, digest
+            metadata, metadata_format, digest, in_progress=in_progress,
         )
         resp = self._http.post(object_url, body_bytes, headers)
 
@@ -155,7 +158,9 @@ class SWORD3Client(object):
                 resp, metadata_url, [400, 401, 403, 404, 405, 412, 413]
             )
 
-    def _metadata_deposit_properties(self, metadata, metadata_format, digest):
+    def _metadata_deposit_properties(
+        self, metadata, metadata_format, digest, in_progress: bool = None,
+    ):
         body = json.dumps(metadata.data)
         body_bytes = body.encode("utf-8")
         content_length = len(body_bytes)
@@ -176,6 +181,9 @@ class SWORD3Client(object):
             "Metadata-Format": metadata_format,
         }
 
+        if in_progress is not None:
+            headers["In-Progress"] = "true" if in_progress else "false"
+
         return body_bytes, headers
 
     #######################################################
@@ -190,6 +198,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str],
         content_length: int = None,
         content_type: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         return self._generic_create_binary(
@@ -200,6 +209,7 @@ class SWORD3Client(object):
             content_type,
             constants.PACKAGE_BINARY,
             ContentDisposition.binary_upload(filename),
+            in_progress=in_progress,
         )
 
     def create_object_with_package(
@@ -211,6 +221,7 @@ class SWORD3Client(object):
         content_length: int = None,
         content_type: str = None,
         packaging: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
         return self._generic_create_binary(
             service,
@@ -220,6 +231,7 @@ class SWORD3Client(object):
             content_type,
             packaging,
             ContentDisposition.package_upload(filename),
+            in_progress=in_progress,
         )
 
     def add_binary(
@@ -230,6 +242,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str],
         content_length: int = None,
         content_type: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         return self._generic_add_binary(
@@ -240,6 +253,7 @@ class SWORD3Client(object):
             content_type,
             constants.PACKAGE_BINARY,
             ContentDisposition.binary_upload(filename),
+            in_progress=in_progress,
         )
 
     def add_package(
@@ -251,6 +265,7 @@ class SWORD3Client(object):
         content_length: int = None,
         content_type: str = None,
         packaging: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         return self._generic_add_binary(
@@ -261,6 +276,7 @@ class SWORD3Client(object):
             content_type,
             packaging,
             ContentDisposition.package_upload(filename),
+            in_progress=in_progress,
         )
 
     def replace_object_with_binary(
@@ -271,6 +287,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str],
         content_length: int = None,
         content_type: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         return self._generic_replace_binary(
@@ -281,6 +298,7 @@ class SWORD3Client(object):
             content_type,
             constants.PACKAGE_BINARY,
             ContentDisposition.binary_upload(filename),
+            in_progress=in_progress,
         )
 
     def replace_object_with_package(
@@ -292,6 +310,7 @@ class SWORD3Client(object):
         content_length: int = None,
         content_type: str = None,
         packaging: str = None,
+        in_progress: bool = False,
     ) -> SWORDResponse:
 
         return self._generic_replace_binary(
@@ -302,6 +321,7 @@ class SWORD3Client(object):
             content_type,
             packaging,
             ContentDisposition.package_upload(filename),
+            in_progress=in_progress,
         )
 
     def _generic_create_binary(
@@ -313,12 +333,18 @@ class SWORD3Client(object):
         content_type: str,
         packaging: str,
         content_disposition: ContentDisposition,
+        in_progress: bool,
     ) -> SWORDResponse:
 
         # get the service url.  The first argument may be the URL or the ServiceDocument
         service_url = self._get_url(service, "service_url")
         headers = self._binary_deposit_properties(
-            content_type, packaging, digest, content_disposition, content_length
+            content_type,
+            packaging,
+            digest,
+            content_disposition,
+            content_length,
+            in_progress=in_progress,
         )
         resp = self._http.post(service_url, binary_stream, headers)
 
@@ -338,11 +364,17 @@ class SWORD3Client(object):
         content_type: str,
         packaging: str,
         content_disposition: ContentDisposition,
+        in_progress: bool,
     ) -> SWORDResponse:
 
         object_url = self._get_url(status_or_object_url, "object_url")
         headers = self._binary_deposit_properties(
-            content_type, packaging, digest, content_disposition, content_length
+            content_type,
+            packaging,
+            digest,
+            content_disposition,
+            content_length,
+            in_progress=in_progress,
         )
         resp = self._http.post(object_url, binary_stream, headers)
 
@@ -362,11 +394,17 @@ class SWORD3Client(object):
         content_type: str,
         packaging: str,
         content_disposition: ContentDisposition,
+        in_progress: bool,
     ) -> SWORDResponse:
 
         object_url = self._get_url(status_or_object_url, "object_url")
         headers = self._binary_deposit_properties(
-            content_type, packaging, digest, content_disposition, content_length
+            content_type,
+            packaging,
+            digest,
+            content_disposition,
+            content_length,
+            in_progress=in_progress,
         )
         resp = self._http.put(object_url, binary_stream, headers)
 
@@ -378,7 +416,13 @@ class SWORD3Client(object):
             )
 
     def _binary_deposit_properties(
-        self, content_type, packaging, digest, content_disposition, content_length
+        self,
+        content_type,
+        packaging,
+        digest,
+        content_disposition,
+        content_length,
+        in_progress: bool = None,
     ):
         if content_type is None:
             content_type = "application/octet-stream"
@@ -397,6 +441,9 @@ class SWORD3Client(object):
 
         if content_length is not None:
             headers["Content-Length"] = content_length
+
+        if in_progress is not None:
+            headers["In-Progress"] = "true" if in_progress else "false"
 
         return headers
 

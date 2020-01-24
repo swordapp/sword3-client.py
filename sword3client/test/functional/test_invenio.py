@@ -214,7 +214,7 @@ class TestInvenio(TestCase):
         metadata.add_field("custom", "entry")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
 
         url = dr.location
 
@@ -223,7 +223,7 @@ class TestInvenio(TestCase):
         metadata2.add_dc_field("abstract", "This is an abstract")
 
         client.set_http_layer(HTTP_FACTORY.append_metadata())
-        dr2 = client.append_metadata(url, metadata2)
+        dr2 = client.append_metadata(url, metadata2, in_progress=True)
 
         assert dr2.status_code == 200
         assert dr2.location is not None
@@ -270,6 +270,7 @@ class TestInvenio(TestCase):
             digest,
             content_length,
             content_type="text/plain",
+            in_progress=True,
         )
 
         assert dr3.status_code == 200
@@ -342,7 +343,7 @@ class TestInvenio(TestCase):
         metadata.add_field("custom", "entry")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
         status = dr.status_document
 
         # 2. Add a binary file to it
@@ -371,6 +372,7 @@ class TestInvenio(TestCase):
             digest,
             content_length,
             content_type="text/plain",
+            in_progress=True,
         )
 
         # 3. Replace the metadata
@@ -439,6 +441,7 @@ class TestInvenio(TestCase):
             digest,
             content_length,
             content_type="text/plain",
+            in_progress=True,
         )
 
         # 2. add another binary file
@@ -473,6 +476,7 @@ class TestInvenio(TestCase):
             digest2,
             content_length2,
             content_type="text/plain",
+            in_progress=True,
         )
 
         # check that we have 2 files
@@ -520,7 +524,7 @@ class TestInvenio(TestCase):
         metadata.add_dc_field("title", "Replace Test")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
         status = dr.status_document
 
         # 2. Replace the object with a binary file
@@ -538,6 +542,7 @@ class TestInvenio(TestCase):
             digest,
             content_length,
             content_type="text/plain",
+            in_progress=True,
         )
 
         # 3. Check the object and the metadata
@@ -566,7 +571,7 @@ class TestInvenio(TestCase):
         metadata2.add_dc_field("title", "More metadata")
 
         client.set_http_layer(HTTP_FACTORY.replace_object_with_metadata(links=[]))
-        dr3 = client.replace_object_with_metadata(status, metadata2)
+        dr3 = client.replace_object_with_metadata(status, metadata2, in_progress=True)
 
         # 5. check that the files are gone and the new metadata is in
         status = dr3.status_document
@@ -622,7 +627,7 @@ class TestInvenio(TestCase):
         metadata.add_dc_field("title", "Test delete")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
 
         status = dr.status_document
 
@@ -652,6 +657,7 @@ class TestInvenio(TestCase):
             digest,
             content_length,
             content_type="text/plain",
+            in_progress=True,
         )
 
         bytes2 = b"this is another random stream of bytes"
@@ -685,6 +691,7 @@ class TestInvenio(TestCase):
             digest2,
             content_length2,
             content_type="text/plain",
+            in_progress=True,
         )
         status = dr3.status_document
 
