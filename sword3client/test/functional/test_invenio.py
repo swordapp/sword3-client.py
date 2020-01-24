@@ -751,7 +751,7 @@ class TestInvenio(TestCase):
         client.set_http_layer(HTTP_FACTORY.delete_object())
         dr7 = client.delete_object(status)
 
-        assert dr7.status_code == 204
+        assert dr7.status_code in [200, 202, 204]
 
         # 10. Attempt to retrieve the object
         client.set_http_layer(HTTP_FACTORY.get_object(not_found=True))

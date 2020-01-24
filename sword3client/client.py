@@ -478,7 +478,7 @@ class SWORD3Client(object):
         object_url = self._get_url(sword_object, "object_url")
         resp = self._http.delete(object_url)
 
-        if resp.status_code == 204:
+        if resp.status_code in [202, 204]:
             return SWORDResponse(resp)
         else:
             self._raise_for_status_code(
