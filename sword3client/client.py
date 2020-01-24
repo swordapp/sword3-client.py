@@ -467,7 +467,9 @@ class SWORD3Client(object):
                     e, "Object retrieval got invalid status document"
                 )
         else:
-            self._raise_for_status_code(resp, object_url, [400, 401, 403, 404, 412])
+            self._raise_for_status_code(
+                resp, object_url, [400, 401, 403, 404, 410, 412]
+            )
 
     def delete_object(
         self, sword_object: typing.Union[StatusDocument, str]
@@ -623,6 +625,10 @@ class SWORD3Client(object):
         elif resp.status_code == 405 and 405 in expected:
             raise exceptions.SWORD3OperationNotAllowed(
                 request_url, resp, "The resource does not support this operation"
+            )
+        elif resp.status_code == 410 and 410 in expected:
+            raise exceptions.SWORD3NotFound(
+                request_url, resp, "The resource at requested URL has Gone"
             )
         elif resp.status_code == 412 and 412 in expected:
             raise exceptions.SWORD3PreconditionFailed(
