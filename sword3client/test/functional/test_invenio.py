@@ -484,7 +484,7 @@ class TestInvenio(TestCase):
         )
 
         # check that we have 2 files
-        status = dr2.status_document
+        status = client.get_object(dr.location)
         assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 2
 
         # 3. replace the fileset with a new binary
@@ -697,7 +697,6 @@ class TestInvenio(TestCase):
             content_type="text/plain",
             in_progress=True,
         )
-        status = dr3.status_document
 
         # 3. Delete the object metadata
         client.set_http_layer(HTTP_FACTORY.delete_metadata())
@@ -709,6 +708,9 @@ class TestInvenio(TestCase):
         client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
         metadata2 = client.get_metadata(status)
         assert metadata2.get_dc_field("title") is None
+
+        # Refresh status document
+        status = client.get_object(status)
 
         # 5. Delete one of the files
         file_url = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])[0].get(
