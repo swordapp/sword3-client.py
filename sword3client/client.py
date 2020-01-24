@@ -440,7 +440,7 @@ class SWORD3Client(object):
         }
 
         if content_length is not None:
-            headers["Content-Length"] = content_length
+            headers["Content-Length"] = str(content_length)
 
         if in_progress is not None:
             headers["In-Progress"] = "true" if in_progress else "false"
