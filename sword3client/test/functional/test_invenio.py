@@ -597,7 +597,7 @@ class TestInvenio(TestCase):
             dr4 = client.replace_object_with_package(
                 status,
                 stream,
-                "test.zip",
+                "SWORDBagIt.zip",
                 digest,
                 content_type="application/zip",
                 content_length=file_size,
@@ -623,7 +623,7 @@ class TestInvenio(TestCase):
 
         client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
         metadata = client.get_metadata(status)
-        assert metadata.get_dc_field("title") is None
+        assert metadata.get_dc_field("title") == "The title"
 
     def test_09_delete(self):
         # 1. Create an object with the metadata
