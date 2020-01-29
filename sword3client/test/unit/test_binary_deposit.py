@@ -14,21 +14,19 @@ from io import BytesIO
 import hashlib
 import base64
 
-class TestBinaryDeposit(TestCase):
 
+class TestBinaryDeposit(TestCase):
     def test_01_create_object_with_binary(self):
 
         SD_URL = "http://example.com/service-document"
         BODY = json.dumps(StatusFixtureFactory.status_document())
-        HEADERS = {"Location" : "http://example.com/location"}
+        HEADERS = {"Location": "http://example.com/location"}
 
         client = SWORD3Client(http=MockHttpLayer(201, BODY, HEADERS))
 
         bytes = b"this is a random stream of bytes"
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         stream = BytesIO(bytes)
 
         try:
@@ -40,20 +38,23 @@ class TestBinaryDeposit(TestCase):
 
         SD_URL = "http://example.com/service-document"
         BODY = json.dumps(StatusFixtureFactory.status_document())
-        HEADERS = {"Location" : "http://example.com/location"}
+        HEADERS = {"Location": "http://example.com/location"}
 
         client = SWORD3Client(http=MockHttpLayer(201, BODY, HEADERS))
 
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         with open(bag, "rb") as stream:
             try:
-                dr = client.create_object_with_package(SD_URL, stream, "test.zip", digest,
-                                                       content_type="application/zip",
-                                                       packaging=constants.PACKAGE_SWORDBAGIT)
+                dr = client.create_object_with_package(
+                    SD_URL,
+                    stream,
+                    "test.zip",
+                    digest,
+                    content_type="application/zip",
+                    packaging=constants.PACKAGE_SWORDBAGIT,
+                )
             except SeamlessException as e:
                 print(e.message)
 
@@ -66,9 +67,7 @@ class TestBinaryDeposit(TestCase):
 
         bytes = b"this is a random stream of bytes"
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         stream = BytesIO(bytes)
 
         try:
@@ -85,14 +84,17 @@ class TestBinaryDeposit(TestCase):
 
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         with open(bag, "rb") as stream:
             try:
-                dr = client.add_package(OBJ_URL, stream, "test.zip", digest,
-                                                       content_type="application/zip",
-                                                       packaging=constants.PACKAGE_SWORDBAGIT)
+                dr = client.add_package(
+                    OBJ_URL,
+                    stream,
+                    "test.zip",
+                    digest,
+                    content_type="application/zip",
+                    packaging=constants.PACKAGE_SWORDBAGIT,
+                )
             except SeamlessException as e:
                 print(e.message)
 
@@ -104,9 +106,7 @@ class TestBinaryDeposit(TestCase):
 
         bytes = b"this is a random stream of bytes"
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         stream = BytesIO(bytes)
 
         try:
@@ -123,13 +123,16 @@ class TestBinaryDeposit(TestCase):
 
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         with open(bag, "rb") as stream:
             try:
-                dr = client.replace_object_with_package(OBJ_URL, stream, "test.zip", digest,
-                                                       content_type="application/zip",
-                                                       packaging=constants.PACKAGE_SWORDBAGIT)
+                dr = client.replace_object_with_package(
+                    OBJ_URL,
+                    stream,
+                    "test.zip",
+                    digest,
+                    content_type="application/zip",
+                    packaging=constants.PACKAGE_SWORDBAGIT,
+                )
             except SeamlessException as e:
                 print(e.message)

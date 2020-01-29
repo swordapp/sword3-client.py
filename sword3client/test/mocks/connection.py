@@ -1,7 +1,12 @@
 from sword3client.connection import HttpLayer, HttpResponse
-from sword3common.test.fixtures import ServiceFixtureFactory, StatusFixtureFactory, MetadataFixtureFactory
+from sword3common.test.fixtures import (
+    ServiceFixtureFactory,
+    StatusFixtureFactory,
+    MetadataFixtureFactory,
+)
 
 import json
+
 
 class MockHttpLayer(HttpLayer):
     def __init__(self, code=200, body=None, headers=None, stream=None):

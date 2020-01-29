@@ -10,7 +10,6 @@ from sword3common import constants
 
 
 class TestFile(unittest.TestCase):
-
     def setUp(self) -> None:
         self.tmpFiles = []
 
@@ -31,7 +30,7 @@ class TestFile(unittest.TestCase):
         with open(data_in, "rb") as f:
             client = SWORD3Client(http=MockHttpLayer(200, stream=f))
             with client.get_file(FILE_URL) as stream:
-                with open(data_out, 'wb') as g:
+                with open(data_out, "wb") as g:
                     shutil.copyfileobj(stream, g)
 
         d1 = paths.sha256(data_in)
@@ -48,7 +47,12 @@ class TestFile(unittest.TestCase):
         d1 = paths.sha256(data_in)
 
         client = SWORD3Client(http=MockHttpLayer(204))
-        dr = client.replace_file(FILE_URL, data_in, "application/octet-stream", {constants.DIGEST_SHA_256 : d1.digest()})
+        dr = client.replace_file(
+            FILE_URL,
+            data_in,
+            "application/octet-stream",
+            {constants.DIGEST_SHA_256: d1.digest()},
+        )
 
     def test_03_delete_file(self):
         FILE_URL = "http://example.com/objects/10/files/1"
@@ -69,4 +73,9 @@ class TestFile(unittest.TestCase):
         d1 = paths.sha256(data_in)
 
         client = SWORD3Client(http=HttpMockFactory.replace_fileset_with_binary())
-        dr = client.replace_fileset_with_binary(FILESET_URL, data_in, "application/octet-stream", {constants.DIGEST_SHA_256: d1.digest()})
+        dr = client.replace_fileset_with_binary(
+            FILESET_URL,
+            data_in,
+            "application/octet-stream",
+            {constants.DIGEST_SHA_256: d1.digest()},
+        )
