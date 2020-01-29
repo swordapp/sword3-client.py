@@ -7,6 +7,8 @@ from sword3client.lib import paths
 
 from sword3common import constants, Metadata
 
+from sword3client.test.mocks.metadata import ContentMalformedMetadata
+
 from io import BytesIO
 import hashlib
 import base64
@@ -763,3 +765,13 @@ class TestInvenio(TestCase):
         client.set_http_layer(HTTP_FACTORY.get_object(not_found=True))
         with self.assertRaises(exceptions.SWORD3NotFound):
             client.get_object(status)
+
+    def test_10_content_malformed(self):
+        metadata = ContentMalformedMetadata()
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        with self.assertRaises(ContentMalformedError):  # FIXME
+            try:
+                dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+            except ContentMalformedError as e:   # FIXME
+                # assert some stuff about the error
+                raise
