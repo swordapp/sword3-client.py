@@ -17,7 +17,6 @@ class HttpLayer(object):
 
 
 class HttpResponse(object):
-
     def __enter__(self):
         raise NotImplementedError
 

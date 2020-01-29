@@ -4,7 +4,11 @@ import os
 
 from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
-from sword3client.exceptions import SWORD3AuthenticationError, SWORD3NotFound, SWORD3WireError
+from sword3client.exceptions import (
+    SWORD3AuthenticationError,
+    SWORD3NotFound,
+    SWORD3WireError,
+)
 from sword3client.lib import paths
 
 from sword3common.test.fixtures import StatusFixtureFactory
@@ -12,7 +16,6 @@ from sword3common import StatusDocument
 
 
 class TestObjectMethods(unittest.TestCase):
-
     def setUp(self) -> None:
         self.tmpFiles = []
 
@@ -24,7 +27,9 @@ class TestObjectMethods(unittest.TestCase):
     def test_01_get_object(self):
         OBJ_URL = "http://example.com/objects/10"
 
-        client = SWORD3Client(http=MockHttpLayer(200, json.dumps(StatusFixtureFactory.status_document())))
+        client = SWORD3Client(
+            http=MockHttpLayer(200, json.dumps(StatusFixtureFactory.status_document()))
+        )
         obj = client.get_object(OBJ_URL)
         assert isinstance(obj, StatusDocument)
 
