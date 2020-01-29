@@ -19,7 +19,9 @@ class SWORD3WireError(SWORD3Error):
         request_on = "unknown"
         if self.request_url is not None:
             request_on = self.request_url
-        return "[status: {x}] [request on: {z}] {y}".format(x=code, y=self.message, z=request_on)
+        return "[status: {x}] [request on: {z}] {y}".format(
+            x=code, y=self.message, z=request_on
+        )
 
 
 class SWORD3AuthenticationError(SWORD3WireError):

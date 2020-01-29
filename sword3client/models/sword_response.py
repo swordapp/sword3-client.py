@@ -4,6 +4,7 @@ from sword3client.exceptions import SWORD3InvalidDataFromServer
 
 import json
 
+
 class SWORDResponse(object):
     def __init__(self, http_response):
         self._http_response = http_response
@@ -15,7 +16,10 @@ class SWORDResponse(object):
             try:
                 self._status_document = StatusDocument(data)
             except SeamlessException as e:
-                raise SWORD3InvalidDataFromServer(e, "DepositResponse could not be constructed as status document is invalid")
+                raise SWORD3InvalidDataFromServer(
+                    e,
+                    "DepositResponse could not be constructed as status document is invalid",
+                )
 
     @property
     def location(self):

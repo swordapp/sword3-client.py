@@ -2,7 +2,11 @@ from unittest import TestCase
 
 from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
-from sword3client.exceptions import SWORD3AuthenticationError, SWORD3NotFound, SWORD3WireError
+from sword3client.exceptions import (
+    SWORD3AuthenticationError,
+    SWORD3NotFound,
+    SWORD3WireError,
+)
 
 from sword3common import Metadata, ServiceDocument
 from sword3common.test.fixtures import StatusFixtureFactory, MetadataFixtureFactory
@@ -10,13 +14,13 @@ from sword3common.exceptions import SeamlessException
 
 import json
 
-class TestService(TestCase):
 
+class TestService(TestCase):
     def test_01_create_object_with_metadata(self):
 
         SD_URL = "http://example.com/service-document"
         BODY = json.dumps(StatusFixtureFactory.status_document())
-        HEADERS = {"Location" : "http://example.com/location"}
+        HEADERS = {"Location": "http://example.com/location"}
 
         client = SWORD3Client(http=MockHttpLayer(201, BODY, HEADERS))
 
@@ -73,7 +77,9 @@ class TestService(TestCase):
     def test_05_get_metadata(self):
         MD_URL = "http://example.com/objects/10/metadata"
 
-        client = SWORD3Client(http=MockHttpLayer(200, json.dumps(MetadataFixtureFactory.metadata())))
+        client = SWORD3Client(
+            http=MockHttpLayer(200, json.dumps(MetadataFixtureFactory.metadata()))
+        )
         obj = client.get_metadata(MD_URL)
         assert isinstance(obj, Metadata)
 

@@ -17,8 +17,11 @@ SERVICE_URL = "http://localhost:8000/service-document"
 DEPOSIT_URL = "http://localhost:8000/api/deposit"
 
 AUTH_TOKEN = ""
-INVENIO_HTTP_LAYER = RequestsHttpLayer(headers={'Authorization': 'Bearer ' + AUTH_TOKEN})
+INVENIO_HTTP_LAYER = RequestsHttpLayer(
+    headers={"Authorization": "Bearer " + AUTH_TOKEN}
+)
 MOCK_MODE = True
+
 
 class HttpLayerFactory(object):
     def __init__(self, default, use_mock):
@@ -37,10 +40,11 @@ class HttpLayerFactory(object):
     def get_default(self, *args, **kwargs):
         return self._default
 
+
 HTTP_FACTORY = HttpLayerFactory(INVENIO_HTTP_LAYER, MOCK_MODE)
 
-class TestInvenio(TestCase):
 
+class TestInvenio(TestCase):
     def setUp(self) -> None:
         self.tmpFiles = []
 
@@ -84,7 +88,9 @@ class TestInvenio(TestCase):
         metadata2 = client.get_metadata(status2)
         metadata2.verify_against_struct()
         assert metadata.get_dc_field("creator") == metadata2.get_dc_field("creator")
-        assert metadata.get_dcterms_field("rights") == metadata2.get_dcterms_field("rights")
+        assert metadata.get_dcterms_field("rights") == metadata2.get_dcterms_field(
+            "rights"
+        )
         assert metadata.get_field("custom") == metadata2.get_field("custom")
 
     def test_03_create_object_with_binary(self):
@@ -92,20 +98,29 @@ class TestInvenio(TestCase):
         bytes = b"this is a random stream of bytes"
         content_length = len(bytes)
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: d.digest()
-        }
+        digest = {constants.DIGEST_SHA_256: d.digest()}
         stream = BytesIO(bytes)
 
-        client = SWORD3Client(HTTP_FACTORY.create_object_with_binary(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            },
-        ]))
-        dr = client.create_object_with_binary(SERVICE_URL, stream, "test.bin", digest, content_length, content_type="text/plain")
+        client = SWORD3Client(
+            HTTP_FACTORY.create_object_with_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                ]
+            )
+        )
+        dr = client.create_object_with_binary(
+            SERVICE_URL,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+        )
 
         assert dr.status_code == 201
         assert dr.location is not None
@@ -133,25 +148,32 @@ class TestInvenio(TestCase):
         # 1. Create the object with a package
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         file_size = os.path.getsize(bag)
 
-        client = SWORD3Client(HTTP_FACTORY.create_object_with_package(links=[
-            {
-                "@id": "http://example.com/object/10/test.zip",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "application/zip",
-                "packaging": constants.PACKAGE_SWORDBAGIT
-            },
-        ]))
+        client = SWORD3Client(
+            HTTP_FACTORY.create_object_with_package(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.zip",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "application/zip",
+                        "packaging": constants.PACKAGE_SWORDBAGIT,
+                    },
+                ]
+            )
+        )
 
         with open(bag, "rb") as stream:
-            dr = client.create_object_with_package(SERVICE_URL, stream, "test.zip", digest,
-                                                   content_type="application/zip",
-                                                   content_length=file_size,
-                                                   packaging=constants.PACKAGE_SWORDBAGIT)
+            dr = client.create_object_with_package(
+                SERVICE_URL,
+                stream,
+                "test.zip",
+                digest,
+                content_type="application/zip",
+                content_length=file_size,
+                packaging=constants.PACKAGE_SWORDBAGIT,
+            )
 
         assert dr.status_code == 201
         assert dr.location is not None
@@ -178,7 +200,7 @@ class TestInvenio(TestCase):
         with open(bag, "rb") as stream:
             client.set_http_layer(HTTP_FACTORY.get_file(stream))
             with client.get_file(url) as download:
-                with open(data_out, 'wb') as g:
+                with open(data_out, "wb") as g:
                     shutil.copyfileobj(download, g)
 
         d2 = paths.sha256(data_out)
@@ -192,7 +214,7 @@ class TestInvenio(TestCase):
         metadata.add_field("custom", "entry")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
 
         url = dr.location
 
@@ -201,7 +223,7 @@ class TestInvenio(TestCase):
         metadata2.add_dc_field("abstract", "This is an abstract")
 
         client.set_http_layer(HTTP_FACTORY.append_metadata())
-        dr2 = client.append_metadata(url, metadata2)
+        dr2 = client.append_metadata(url, metadata2, in_progress=True)
 
         assert dr2.status_code == 200
         assert dr2.location is not None
@@ -216,7 +238,9 @@ class TestInvenio(TestCase):
         metadata3 = client.get_metadata(status)
 
         assert metadata.get_dc_field("creator") == metadata3.get_dc_field("creator")
-        assert metadata.get_dcterms_field("rights") == metadata3.get_dcterms_field("rights")
+        assert metadata.get_dcterms_field("rights") == metadata3.get_dcterms_field(
+            "rights"
+        )
         assert metadata.get_field("custom") == metadata3.get_field("custom")
         assert metadata.get_field("abstract") == metadata3.get_field("abstract")
 
@@ -224,21 +248,30 @@ class TestInvenio(TestCase):
         bytes = b"this is another random stream of bytes"
         content_length = len(bytes)
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: d.digest()
-        }
+        digest = {constants.DIGEST_SHA_256: d.digest()}
         stream = BytesIO(bytes)
 
-        client = SWORD3Client(HTTP_FACTORY.add_binary(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            }
-        ]))
-        dr3 = client.add_binary(status, stream, "test.bin", digest, content_length,
-                                content_type="text/plain")
+        client = SWORD3Client(
+            HTTP_FACTORY.add_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    }
+                ]
+            )
+        )
+        dr3 = client.add_binary(
+            status,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+            in_progress=True,
+        )
 
         assert dr3.status_code == 200
         assert dr3.location is not None
@@ -247,7 +280,9 @@ class TestInvenio(TestCase):
         status.verify_against_struct()
 
         # 5. Retrieve the file again
-        file_url = dr3.location
+        file_url = dr3.status_document.list_links(
+            ["http://purl.org/net/sword/3.0/terms/fileSetFile"]
+        )[0]["@id"]
         client.set_http_layer(HTTP_FACTORY.get_file(BytesIO(bytes)))
         with client.get_file(file_url) as download:
             received = download.read()
@@ -256,31 +291,38 @@ class TestInvenio(TestCase):
         # 6. Append a package
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         file_size = os.path.getsize(bag)
 
-        client = SWORD3Client(HTTP_FACTORY.add_package(links=[
-            {
-                "@id": "http://example.com/object/10/test.zip",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "application/zip",
-                "packaging": constants.PACKAGE_SWORDBAGIT
-            },
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": constants.PACKAGE_BINARY
-            }
-        ]))
+        client = SWORD3Client(
+            HTTP_FACTORY.add_package(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.zip",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "application/zip",
+                        "packaging": constants.PACKAGE_SWORDBAGIT,
+                    },
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": constants.PACKAGE_BINARY,
+                    },
+                ]
+            )
+        )
 
         with open(bag, "rb") as stream:
-            dr = client.add_package(status, stream, "test.zip", digest,
-                                   content_type="application/zip",
-                                   content_length=file_size,
-                                   packaging=constants.PACKAGE_SWORDBAGIT)
+            dr = client.add_package(
+                status,
+                stream,
+                "test.zip",
+                digest,
+                content_type="application/zip",
+                content_length=file_size,
+                packaging=constants.PACKAGE_SWORDBAGIT,
+            )
 
         assert dr.status_code == 200
         assert dr.location is not None
@@ -303,28 +345,37 @@ class TestInvenio(TestCase):
         metadata.add_field("custom", "entry")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
         status = dr.status_document
 
         # 2. Add a binary file to it
         bytes = b"this is another random stream of bytes"
         content_length = len(bytes)
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: d.digest()
-        }
+        digest = {constants.DIGEST_SHA_256: d.digest()}
         stream = BytesIO(bytes)
 
-        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": constants.PACKAGE_BINARY
-            }
-        ]))
-        dr2 = client.add_binary(status, stream, "test.bin", digest, content_length,
-                                content_type="text/plain")
+        client.set_http_layer(
+            HTTP_FACTORY.add_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": constants.PACKAGE_BINARY,
+                    }
+                ]
+            )
+        )
+        dr2 = client.add_binary(
+            status,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+            in_progress=True,
+        )
 
         # 3. Replace the metadata
         metadata2 = Metadata()
@@ -350,14 +401,16 @@ class TestInvenio(TestCase):
         bytes2 = b"this is a replacement stream of bytes"
         content_length2 = len(bytes2)
         d2 = hashlib.sha256(bytes2)
-        digest2 = {
-            constants.DIGEST_SHA_256: d2.digest()
-        }
+        digest2 = {constants.DIGEST_SHA_256: d2.digest()}
         stream2 = BytesIO(bytes2)
 
         client.set_http_layer(HTTP_FACTORY.replace_file())
-        file_url = dr2.location
-        dr4 = client.replace_file(file_url, stream2, "text/plain", digest2, "test.bin", content_length2)
+        file_url = dr2.status_document.list_links(
+            rels=["http://purl.org/net/sword/3.0/terms/fileSetFile"]
+        )[0]["@id"]
+        dr4 = client.replace_file(
+            file_url, stream2, "text/plain", digest2, "test.bin", content_length2
+        )
 
         # 6. Retrieve the file again
         client.set_http_layer(HTTP_FACTORY.get_file(BytesIO(bytes2)))
@@ -370,75 +423,101 @@ class TestInvenio(TestCase):
         bytes = b"this is a random stream of bytes"
         content_length = len(bytes)
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: d.digest()
-        }
+        digest = {constants.DIGEST_SHA_256: d.digest()}
         stream = BytesIO(bytes)
 
-        client = SWORD3Client(HTTP_FACTORY.create_object_with_binary(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            },
-        ]))
-        dr = client.create_object_with_binary(SERVICE_URL, stream, "test.bin", digest, content_length,
-                                              content_type="text/plain")
+        client = SWORD3Client(
+            HTTP_FACTORY.create_object_with_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                ]
+            )
+        )
+        dr = client.create_object_with_binary(
+            SERVICE_URL,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+            in_progress=True,
+        )
 
         # 2. add another binary file
         bytes2 = b"this is another random stream of bytes"
         content_length2 = len(bytes2)
         d2 = hashlib.sha256(bytes2)
-        digest2 = {
-            constants.DIGEST_SHA_256: d2.digest()
-        }
+        digest2 = {constants.DIGEST_SHA_256: d2.digest()}
         stream2 = BytesIO(bytes2)
 
-        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            },
-            {
-                "@id": "http://example.com/object/10/test2.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            }
-        ]))
-        dr2 = client.add_binary(dr.location, stream2, "test2.bin", digest2, content_length2,
-                                content_type="text/plain")
+        client.set_http_layer(
+            HTTP_FACTORY.add_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                    {
+                        "@id": "http://example.com/object/10/test2.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                ]
+            )
+        )
+        dr2 = client.add_binary(
+            dr.location,
+            stream2,
+            "test2.bin",
+            digest2,
+            content_length2,
+            content_type="text/plain",
+            in_progress=True,
+        )
 
         # check that we have 2 files
-        status = dr2.status_document
+        status = client.get_object(dr.location)
         assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 2
 
         # 3. replace the fileset with a new binary
         bytes3 = b"this is a replacement stream of bytes"
         content_length3 = len(bytes3)
         d3 = hashlib.sha256(bytes3)
-        digest3 = {
-            constants.DIGEST_SHA_256: d3.digest()
-        }
+        digest3 = {constants.DIGEST_SHA_256: d3.digest()}
         stream3 = BytesIO(bytes3)
 
         client.set_http_layer(HTTP_FACTORY.replace_fileset_with_binary())
-        dr3 = client.replace_fileset_with_binary(status.fileset_url, stream3, "test3.bin", digest3, content_length3,
-                                content_type="text/plain")
+        dr3 = client.replace_fileset_with_binary(
+            status.fileset_url,
+            stream3,
+            "test3.bin",
+            digest3,
+            content_length3,
+            content_type="text/plain",
+        )
 
         assert dr3.status_code == 204
 
-        client.set_http_layer(HTTP_FACTORY.get_object(links=[
-            {
-                "@id": "http://example.com/object/10/test3.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            }
-        ]))
+        client.set_http_layer(
+            HTTP_FACTORY.get_object(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test3.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    }
+                ]
+            )
+        )
 
         status = client.get_object(status)
         assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1
@@ -449,31 +528,40 @@ class TestInvenio(TestCase):
         metadata.add_dc_field("title", "Replace Test")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
         status = dr.status_document
 
         # 2. Replace the object with a binary file
         bytes = b"this is a random stream of bytes"
         content_length = len(bytes)
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: d.digest()
-        }
+        digest = {constants.DIGEST_SHA_256: d.digest()}
         stream = BytesIO(bytes)
 
         client.set_http_layer(HTTP_FACTORY.replace_object_with_binary())
-        dr2 = client.replace_object_with_binary(status, stream, "test.bin", digest, content_length,
-                                              content_type="text/plain")
+        dr2 = client.replace_object_with_binary(
+            status,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+            in_progress=True,
+        )
 
         # 3. Check the object and the metadata
-        client.set_http_layer(HTTP_FACTORY.get_object(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            }
-        ]))
+        client.set_http_layer(
+            HTTP_FACTORY.get_object(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    }
+                ]
+            )
+        )
 
         status = client.get_object(status)
         assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1
@@ -487,7 +575,7 @@ class TestInvenio(TestCase):
         metadata2.add_dc_field("title", "More metadata")
 
         client.set_http_layer(HTTP_FACTORY.replace_object_with_metadata(links=[]))
-        dr3 = client.replace_object_with_metadata(status, metadata2)
+        dr3 = client.replace_object_with_metadata(status, metadata2, in_progress=True)
 
         # 5. check that the files are gone and the new metadata is in
         status = dr3.status_document
@@ -500,35 +588,42 @@ class TestInvenio(TestCase):
         # 6. replace the object with packaged content
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
-        digest = {
-            constants.DIGEST_SHA_256: base64.b64encode(d.digest())
-        }
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         file_size = os.path.getsize(bag)
 
         client.set_http_layer(HTTP_FACTORY.replace_object_with_package())
 
         with open(bag, "rb") as stream:
-            dr4 = client.replace_object_with_package(status, stream, "test.zip", digest,
-                                    content_type="application/zip",
-                                    content_length=file_size,
-                                    packaging=constants.PACKAGE_SWORDBAGIT)
+            dr4 = client.replace_object_with_package(
+                status,
+                stream,
+                "SWORDBagIt.zip",
+                digest,
+                content_type="application/zip",
+                content_length=file_size,
+                packaging=constants.PACKAGE_SWORDBAGIT,
+            )
 
         # 7. Check the object and the metadata
-        client.set_http_layer(HTTP_FACTORY.get_object(links=[
-            {
-                "@id": "http://example.com/object/10/test.zip",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "application/zip",
-                "packaging": constants.PACKAGE_SWORDBAGIT
-            }
-        ]))
+        client.set_http_layer(
+            HTTP_FACTORY.get_object(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.zip",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "application/zip",
+                        "packaging": constants.PACKAGE_SWORDBAGIT,
+                    }
+                ]
+            )
+        )
 
         status = client.get_object(status)
         assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1
 
         client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
         metadata = client.get_metadata(status)
-        assert metadata.get_dc_field("title") is None
+        assert metadata.get_dc_field("title") == "The title"
 
     def test_09_delete(self):
         # 1. Create an object with the metadata
@@ -536,7 +631,7 @@ class TestInvenio(TestCase):
         metadata.add_dc_field("title", "Test delete")
 
         client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
-        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
 
         status = dr.status_document
 
@@ -544,48 +639,64 @@ class TestInvenio(TestCase):
         bytes = b"this is a random stream of bytes"
         content_length = len(bytes)
         d = hashlib.sha256(bytes)
-        digest = {
-            constants.DIGEST_SHA_256: d.digest()
-        }
+        digest = {constants.DIGEST_SHA_256: d.digest()}
         stream = BytesIO(bytes)
 
-        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            }
-        ]))
-        dr2 = client.add_binary(status, stream, "test.bin", digest, content_length,
-                                content_type="text/plain")
+        client.set_http_layer(
+            HTTP_FACTORY.add_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    }
+                ]
+            )
+        )
+        dr2 = client.add_binary(
+            status,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+            in_progress=True,
+        )
 
         bytes2 = b"this is another random stream of bytes"
         content_length2 = len(bytes2)
         d2 = hashlib.sha256(bytes2)
-        digest2 = {
-            constants.DIGEST_SHA_256: d2.digest()
-        }
+        digest2 = {constants.DIGEST_SHA_256: d2.digest()}
         stream2 = BytesIO(bytes2)
 
-        client.set_http_layer(HTTP_FACTORY.add_binary(links=[
-            {
-                "@id": "http://example.com/object/10/test.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            },
-            {
-                "@id": "http://example.com/object/10/test2.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            }
-        ]))
-        dr3 = client.add_binary(status, stream2, "test2.bin", digest2, content_length2,
-                                content_type="text/plain")
-        status = dr3.status_document
-
+        client.set_http_layer(
+            HTTP_FACTORY.add_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                    {
+                        "@id": "http://example.com/object/10/test2.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                ]
+            )
+        )
+        dr3 = client.add_binary(
+            status,
+            stream2,
+            "test2.bin",
+            digest2,
+            content_length2,
+            content_type="text/plain",
+            in_progress=True,
+        )
 
         # 3. Delete the object metadata
         client.set_http_layer(HTTP_FACTORY.delete_metadata())
@@ -598,22 +709,31 @@ class TestInvenio(TestCase):
         metadata2 = client.get_metadata(status)
         assert metadata2.get_dc_field("title") is None
 
+        # Refresh status document
+        status = client.get_object(status)
+
         # 5. Delete one of the files
-        file_url = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])[0].get("@id")
+        file_url = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])[0].get(
+            "@id"
+        )
         client.set_http_layer(HTTP_FACTORY.delete_file())
         dr5 = client.delete_file(file_url)
 
         assert dr5.status_code == 204
 
         # 6. Retrieve the updated status and check the file is gone
-        client.set_http_layer(HTTP_FACTORY.get_object(links=[
-            {
-                "@id": "http://example.com/object/10/test2.bin",
-                "rel": [constants.REL_ORIGINAL_DEPOSIT],
-                "contentType": "text/plain",
-                "packaging": "http://purl.org/net/sword/3.0/package/Binary"
-            }
-        ]))
+        client.set_http_layer(
+            HTTP_FACTORY.get_object(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test2.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    }
+                ]
+            )
+        )
         status = client.get_object(status)
 
         ods = status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])
@@ -637,7 +757,7 @@ class TestInvenio(TestCase):
         client.set_http_layer(HTTP_FACTORY.delete_object())
         dr7 = client.delete_object(status)
 
-        assert dr7.status_code == 204
+        assert dr7.status_code in [200, 202, 204]
 
         # 10. Attempt to retrieve the object
         client.set_http_layer(HTTP_FACTORY.get_object(not_found=True))
