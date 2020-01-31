@@ -175,7 +175,7 @@ class SWORD3Client(object):
 
         headers = {
             "Content-Type": "application/json; charset=UTF-8",
-            "Content-Length": content_length,
+            "Content-Length": str(content_length),
             "Content-Disposition": ContentDisposition.metadata_upload().serialise(),
             "Digest": digest_val,
             "Metadata-Format": metadata_format,
