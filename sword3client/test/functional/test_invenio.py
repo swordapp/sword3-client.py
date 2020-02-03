@@ -1,11 +1,11 @@
 from unittest import TestCase
 
-from sword3client import SWORD3Client, exceptions
+from sword3client import SWORD3Client
 from sword3client.connection.connection_requests import RequestsHttpLayer
 from sword3client.test.mocks.connection import HttpMockFactory
 from sword3client.lib import paths
 
-from sword3common import constants, Metadata
+from sword3common import constants, exceptions, Metadata
 
 from io import BytesIO
 import hashlib
@@ -761,5 +761,5 @@ class TestInvenio(TestCase):
 
         # 10. Attempt to retrieve the object
         client.set_http_layer(HTTP_FACTORY.get_object(not_found=True))
-        with self.assertRaises(exceptions.SWORD3NotFound):
+        with self.assertRaises(exceptions.NotFound):
             client.get_object(status)

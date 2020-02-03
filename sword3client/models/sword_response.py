@@ -1,6 +1,5 @@
 from sword3common.models.status import StatusDocument
-from sword3common.lib.seamless import SeamlessException
-from sword3client.exceptions import SWORD3InvalidDataFromServer
+from sword3common import exceptions
 
 import json
 
@@ -15,11 +14,10 @@ class SWORDResponse(object):
             data = json.loads(body)
             try:
                 self._status_document = StatusDocument(data)
-            except SeamlessException as e:
-                raise SWORD3InvalidDataFromServer(
-                    e,
-                    "DepositResponse could not be constructed as status document is invalid",
-                )
+            except exceptions.SeamlessException as e:
+                raise exceptions.InvalidDataFromServer(
+                    "DepositResponse could not be constructed as status document is invalid"
+                ) from e
 
     @property
     def location(self):
