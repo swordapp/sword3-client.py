@@ -4,15 +4,10 @@ import os
 
 from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
-from sword3client.exceptions import (
-    SWORD3AuthenticationError,
-    SWORD3NotFound,
-    SWORD3WireError,
-)
 from sword3client.lib import paths
 
 from sword3common.test.fixtures import StatusFixtureFactory
-from sword3common import StatusDocument
+from sword3common import exceptions, StatusDocument
 
 
 class TestObjectMethods(unittest.TestCase):
@@ -34,25 +29,25 @@ class TestObjectMethods(unittest.TestCase):
         assert isinstance(obj, StatusDocument)
 
         client = SWORD3Client(http=MockHttpLayer(401))
-        with self.assertRaises(SWORD3AuthenticationError):
+        with self.assertRaises(exceptions.AuthenticationFailed):
             try:
                 obj = client.get_object(OBJ_URL)
-            except SWORD3AuthenticationError as e:
+            except exceptions.AuthenticationFailed as e:
                 assert e.request_url == OBJ_URL
                 assert e.response is not None
                 assert e.message is not None
                 raise
 
         client = SWORD3Client(http=MockHttpLayer(403))
-        with self.assertRaises(SWORD3AuthenticationError):
+        with self.assertRaises(exceptions.AuthenticationFailed):
             obj = client.get_object(OBJ_URL)
 
         client = SWORD3Client(http=MockHttpLayer(404))
-        with self.assertRaises(SWORD3NotFound):
+        with self.assertRaises(exceptions.NotFound):
             obj = client.get_object(OBJ_URL)
 
         client = SWORD3Client(http=MockHttpLayer(405))
-        with self.assertRaises(SWORD3WireError):
+        with self.assertRaises(exceptions.MethodNotAllowed):
             obj = client.get_service(OBJ_URL)
 
     def test_02_delete_object(self):

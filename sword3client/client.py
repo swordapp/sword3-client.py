@@ -1,5 +1,5 @@
 from sword3client.connection.connection_requests import RequestsHttpLayer
-from sword3client import SWORDResponse, exceptions
+from sword3client import SWORDResponse
 
 from sword3common import (
     ServiceDocument,
@@ -8,7 +8,7 @@ from sword3common import (
     ContentDisposition,
     constants,
 )
-from sword3common import exceptions as common_exceptions
+from sword3common import exceptions
 
 import json
 import hashlib
@@ -92,7 +92,7 @@ class SWORD3Client(object):
             data = json.loads(resp.body)
             try:
                 return Metadata(data)
-            except common_exceptions.SeamlessException as e:
+            except exceptions.SeamlessException as e:
                 raise exceptions.SWORD3InvalidDataFromServer(
                     e, "Metadata retrieval got invalid metadata document"
                 )
@@ -462,7 +462,7 @@ class SWORD3Client(object):
             data = json.loads(resp.body)
             try:
                 return StatusDocument(data)
-            except common_exceptions.SeamlessException as e:
+            except exceptions.SeamlessException as e:
                 raise exceptions.SWORD3InvalidDataFromServer(
                     e, "Object retrieval got invalid status document"
                 )
@@ -608,49 +608,27 @@ class SWORD3Client(object):
         if expected is None:
             expected = [400, 401, 403, 404, 405, 412, 413, 415]
 
-        if resp.status_code == 400 and 400 in expected:
-            raise exceptions.SWORD3BadRequest(
-                request_url, resp, "The server did not understand the request"
-            )
-        elif (resp.status_code == 401 and 401 in expected) or (
-            resp.status_code == 403 and 403 in expected
-        ):
-            raise exceptions.SWORD3AuthenticationError(
-                request_url, resp, "Authentication or authorisation failed"
-            )
-        elif resp.status_code == 404 and 404 in expected:
-            raise exceptions.SWORD3NotFound(
-                request_url, resp, "No resource found at requested URL"
-            )
-        elif resp.status_code == 405 and 405 in expected:
-            raise exceptions.SWORD3OperationNotAllowed(
-                request_url, resp, "The resource does not support this operation"
-            )
-        elif resp.status_code == 410 and 410 in expected:
-            raise exceptions.SWORD3NotFound(
-                request_url, resp, "The resource at requested URL has Gone"
-            )
-        elif resp.status_code == 412 and 412 in expected:
-            raise exceptions.SWORD3PreconditionFailed(
-                request_url,
-                resp,
-                "Your request could not be processed as-is, there may be inconsistencies in your request parameters",
-            )
-        elif resp.status_code == 413 and 413 in expected:
-            raise exceptions.SWORD3MaxSizeExceeded(
-                request_url,
-                resp,
-                "Your request exceeded the maximum deposit size for a single request against this server",
-            )
-        elif resp.status_code == 415 and 415 in expected:
-            raise exceptions.SWORD3UnsupportedMediaType(
-                request_url,
-                resp,
-                "The Content-Type that you sent was not supported by the server",
-            )
+        if resp.header("Content-Type") in ("application/json", "application/ld+json"):
+            data = json.loads(resp.body)
+        else:
+            data = {}
+
+        message = data.get("log") or data.get("message")
+
+        if resp.status_code in expected:
+            try:
+                exception_class = exceptions.SwordException.for_status_code_and_name(
+                    resp.status_code, data.get("@type")
+                )
+            except KeyError:
+                pass
+            else:
+                raise exception_class(message=message, response=resp)
+
         elif raise_generic_if_unexpected:
-            raise exceptions.SWORD3WireError(
-                request_url,
-                resp,
-                "Unexpected status code; unable to carry out protocol operation",
+            raise exceptions.UnexpectedSwordException(
+                status_code=resp.status_code,
+                name=data.get("@type"),
+                message=message,
+                response=resp,
             )
