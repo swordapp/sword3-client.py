@@ -6,6 +6,7 @@ from sword3common import (
     Metadata,
     StatusDocument,
     ContentDisposition,
+    ByReference,
     constants,
 )
 from sword3common import exceptions as common_exceptions
@@ -446,6 +447,56 @@ class SWORD3Client(object):
             headers["In-Progress"] = "true" if in_progress else "false"
 
         return headers
+
+    #####################################################
+    ## By-Reference Operations
+    #####################################################
+
+    def create_object_by_reference(
+        self,
+        service: typing.Union[ServiceDocument, str],
+        by_reference: ByReference,
+        digest: typing.Dict[str, str] = None,
+        in_progress: bool = False,
+    ) -> SWORDResponse:
+
+        # get the service url.  The first argument may be the URL or the ServiceDocument
+        service_url = self._get_url(service, "service_url")
+        body_bytes, headers = self._by_reference_deposit_properties(
+            by_reference, digest, in_progress=in_progress
+        )
+        resp = self._http.post(service_url, body_bytes, headers)
+
+        if resp.status_code in [201, 202]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415]
+            )
+
+    def _by_reference_deposit_properties(
+        self, by_reference, digest, in_progress: bool = None,
+    ):
+        body = json.dumps(by_reference.data)
+        body_bytes = body.encode("utf-8")
+        content_length = len(body_bytes)
+
+        if digest is None:
+            d = hashlib.sha256(body_bytes)
+            digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
+        digest_val = self._make_digest_header(digest)
+
+        headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Content-Length": content_length,
+            "Content-Disposition": ContentDisposition.by_reference_upload().serialise(),
+            "Digest": digest_val
+        }
+
+        if in_progress is not None:
+            headers["In-Progress"] = "true" if in_progress else "false"
+
+        return body_bytes, headers
 
     #####################################################
     ## Object level protocol operations
