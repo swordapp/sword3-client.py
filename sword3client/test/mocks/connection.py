@@ -183,3 +183,10 @@ class HttpMockFactory(object):
     def delete_object(cls):
         status = 204
         return MockHttpLayer(status)
+
+    @classmethod
+    def create_object_by_reference(cls, links=None):
+        status = 201
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        headers = {"Location": "http://example.com/object/10"}
+        return MockHttpLayer(status, body, headers)
