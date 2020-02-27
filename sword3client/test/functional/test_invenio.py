@@ -5,7 +5,7 @@ from sword3client.connection.connection_requests import RequestsHttpLayer
 from sword3client.test.mocks.connection import HttpMockFactory
 from sword3client.lib import paths
 
-from sword3common import constants, Metadata, ByReference
+from sword3common import constants, Metadata, ByReference, MetadataAndByReference
 
 from sword3client.test.mocks.metadata import ContentMalformedMetadata
 
@@ -811,3 +811,64 @@ class TestInvenio(TestCase):
         brl = ods[0]
         assert "byReference" in brl
         assert brl["byReference"] == HOSTED_FILE
+
+    def test_11_create_with_metadata_and_by_reference(self):
+        HOSTED_FILE = "https://github.com/swordapp/sword3-client.py/raw/master/sword3client/test/resources/SWORDBagIt.zip"
+        LINKS = [
+            {
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference.zip",
+                "byReference": HOSTED_FILE,
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+            }
+        ]
+
+        # 1. Create an object by reference
+        br = ByReference()
+        br.add_file(HOSTED_FILE,
+                    "test.bin",
+                    "application/octet-stream",
+                    True)
+
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        mdbr = MetadataAndByReference(metadata, br)
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata_and_by_reference(links=LINKS))
+        dr = client.create_object_with_metadata_and_by_reference(SERVICE_URL, mdbr)
+
+        assert dr.status_code == 201
+        assert dr.location is not None
+
+        status = dr.status_document
+        assert status is not None
+        status.verify_against_struct()
+
+        # 2. Retrieve the object itself
+        client.set_http_layer(HTTP_FACTORY.get_object(links=LINKS))
+        status2 = client.get_object(status)
+        status2.verify_against_struct()
+        assert status.data == status2.data
+
+        # 3. Look in the files to see if we can see the byReference file
+        ods = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 1
+        brl = ods[0]
+        assert "byReference" in brl
+        assert brl["byReference"] == HOSTED_FILE
+
+        # 4. Retrieve the metadata back
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata))
+        metadata2 = client.get_metadata(status2)
+        metadata2.verify_against_struct()
+        assert metadata.get_dc_field("creator") == metadata2.get_dc_field("creator")
+        assert metadata.get_dcterms_field("rights") == metadata2.get_dcterms_field("rights")
+        assert metadata.get_field("custom") == metadata2.get_field("custom")

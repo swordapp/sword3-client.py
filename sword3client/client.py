@@ -7,6 +7,7 @@ from sword3common import (
     StatusDocument,
     ContentDisposition,
     ByReference,
+    MetadataAndByReference,
     constants,
 )
 from sword3common import exceptions as common_exceptions
@@ -491,6 +492,63 @@ class SWORD3Client(object):
             "Content-Length": content_length,
             "Content-Disposition": ContentDisposition.by_reference_upload().serialise(),
             "Digest": digest_val
+        }
+
+        if in_progress is not None:
+            headers["In-Progress"] = "true" if in_progress else "false"
+
+        return body_bytes, headers
+
+    #####################################################
+    ## MD+BR methods
+    #####################################################
+
+    def create_object_with_metadata_and_by_reference(
+            self,
+            service: typing.Union[ServiceDocument, str],
+            metadata_and_by_reference: MetadataAndByReference,
+            digest: typing.Dict[str, str] = None,
+            metadata_format: str = None,
+            in_progress: bool = False,
+    ) -> SWORDResponse:
+        # get the service url.  The first argument may be the URL or the ServiceDocument
+        service_url = self._get_url(service, "service_url")
+        body_bytes, headers = self._mdbr_deposit_properties(
+            metadata_and_by_reference, digest, metadata_format, in_progress
+        )
+        resp = self._http.post(service_url, body_bytes, headers)
+
+        if resp.status_code in [201, 202]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415]
+            )
+
+    def _mdbr_deposit_properties(self,
+                                 metadata_and_by_reference:MetadataAndByReference,
+                                 digest: typing.Dict[str, str] = None,
+                                 metadata_format: str = None,
+                                 in_progress: bool = False,
+                                 ):
+        body = json.dumps(metadata_and_by_reference.data)
+        body_bytes = body.encode("utf-8")
+        content_length = len(body_bytes)
+
+        if digest is None:
+            d = hashlib.sha256(body_bytes)
+            digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
+        digest_val = self._make_digest_header(digest)
+
+        if metadata_format is None:
+            metadata_format = constants.URI_METADATA
+
+        headers = {
+            "Content-Type": "application/json; charset=UTF-8",
+            "Content-Length": content_length,
+            "Content-Disposition": ContentDisposition.metadata_and_by_reference_upload().serialise(),
+            "Digest": digest_val,
+            "Metadata-Format" : metadata_format
         }
 
         if in_progress is not None:
