@@ -1,5 +1,5 @@
 from sword3client.connection.connection_requests import RequestsHttpLayer
-from sword3client import SWORDResponse, exceptions
+from sword3client import SWORDResponse
 
 from sword3common import (
     ServiceDocument,
@@ -8,9 +8,11 @@ from sword3common import (
     ContentDisposition,
     ByReference,
     MetadataAndByReference,
+    SegmentedFileUpload,
+    Error,
     constants,
 )
-from sword3common import exceptions as common_exceptions
+from sword3common import exceptions
 
 import json
 import hashlib
@@ -58,7 +60,7 @@ class SWORD3Client(object):
             return SWORDResponse(resp)
         else:
             self._raise_for_status_code(
-                resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415]
+                resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415],
             )
 
     def replace_object_with_metadata(
@@ -94,13 +96,14 @@ class SWORD3Client(object):
             data = json.loads(resp.body)
             try:
                 return Metadata(data)
-            except common_exceptions.SeamlessException as e:
-                raise exceptions.SWORD3InvalidDataFromServer(
-                    e, "Metadata retrieval got invalid metadata document"
-                )
+            except exceptions.SeamlessException as e:
+                raise exceptions.InvalidDataFromServer(
+                    "Metadata retrieval got invalid metadata document: {x}".format(x=e.message),
+                    response=resp
+                ) from e
         else:
             self._raise_for_status_code(
-                resp, metadata_url, [400, 401, 403, 404, 405, 412]
+                resp, metadata_url, [400, 401, 403, 404, 405, 412], request_context=constants.RequestContexts.Metadata
             )
 
     def append_metadata(
@@ -571,7 +574,7 @@ class SWORD3Client(object):
             data = json.loads(resp.body)
             try:
                 return StatusDocument(data)
-            except common_exceptions.SeamlessException as e:
+            except exceptions.SeamlessException as e:
                 raise exceptions.SWORD3InvalidDataFromServer(
                     e, "Object retrieval got invalid status document"
                 )
@@ -604,12 +607,16 @@ class SWORD3Client(object):
             resp = self._http.get(file_url, stream=True)
             resp.__enter__()
 
-            self._raise_for_status_code(
-                resp, file_url, [400, 401, 403, 404, 405, 412], False
-            )
+            if resp.status_code >= 400:
+                self._raise_for_status_code(
+                    resp, file_url, [400, 401, 403, 404, 405, 412]
+                )
             if resp.status_code != 200:
-                raise exceptions.SWORD3WireError(
-                    file_url, resp, "Unexpected status code; unable to retrieve file"
+                raise exceptions.UnexpectedSwordException(
+                    "Unexpected status code; unable to retrieve file",
+                    response=resp,
+                    request_url=file_url,
+                    status_code=resp.status_code
                 )
 
             yield resp.stream
@@ -697,6 +704,104 @@ class SWORD3Client(object):
             )
 
     ###########################################################
+    ## Segmented upload operations
+    ###########################################################
+
+    def initialise_segmented_upload(self,
+                                    service: typing.Union[ServiceDocument, str],
+                                    assembled_size: int,
+                                    segment_count: int,
+                                    segment_size: int,
+                                    digest: typing.Dict[str, str] = None
+                                    ) -> SWORDResponse:
+        staging_url = self._get_url(service, "staging_url")
+
+        digest_val = None
+        if digest is not None:
+            digest_val = self._make_digest_header(digest)
+
+        disp = ContentDisposition.initialise_segmented_upload(
+            assembled_size,
+            digest_val,
+            segment_count,
+            segment_size
+        )
+
+        headers = {
+            "Content-Length" : 0,
+            "Content-Disposition" : disp.serialise()
+        }
+
+        resp = self._http.post(staging_url, None, headers)
+
+        if resp.status_code == 201:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, staging_url, [400, 401, 403, 404, 412, 413]
+            )
+
+    def upload_file_segment(self,
+                            temporary_url: str,
+                            binary_stream: typing.IO,
+                            segment_number: int,
+                            digest: typing.Dict[str, str] = None,
+                            content_length: int = None
+                            ) -> SWORDResponse:
+
+        disp = ContentDisposition.upload_file_segment(segment_number)
+
+        headers = {
+            "Content-Disposition" : disp.serialise(),
+            "Content-Type": "application/octet-stream"
+        }
+
+        if digest is not None:
+            digest_val = self._make_digest_header(digest)
+            headers["Digest"] = digest_val
+
+        if content_length is not None:
+            headers["Content-Length"] = content_length
+
+        resp = self._http.post(temporary_url, binary_stream, headers)
+
+        if resp.status_code == 204:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, temporary_url, [400, 401, 403, 404, 405, 412]
+            )
+
+    def abort_segmented_upload(self, temporary_url: str) -> SWORDResponse:
+        resp = self._http.delete(temporary_url)
+
+        if resp.status_code == 204:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, temporary_url, [400, 401, 403, 404]
+            )
+
+    def segmented_file_upload_status(self,
+                                     temporary_url: str
+                                     ) -> SegmentedFileUpload:
+        resp = self._http.get(temporary_url)
+
+        if resp.status_code == 200:
+            data = json.loads(resp.body)
+            try:
+                return SegmentedFileUpload(data)
+            except exceptions.SeamlessException as e:
+                raise exceptions.InvalidDataFromServer(
+                    "Segmented File Upload retrieval got invalid information document: {x}".format(x=e.message),
+                    response=resp
+                ) from e
+        else:
+            self._raise_for_status_code(
+                resp, temporary_url, [400, 401, 403, 404]
+            )
+
+    ###########################################################
     ## Utility methods
     ###########################################################
 
@@ -712,54 +817,70 @@ class SWORD3Client(object):
         return ", ".join(digest_parts)
 
     def _raise_for_status_code(
-        self, resp, request_url, expected=None, raise_generic_if_unexpected=True
+        self, resp, request_url, expected=None, request_context=None
     ):
+        # set a default set of expected codes, if none is provided
         if expected is None:
             expected = [400, 401, 403, 404, 405, 412, 413, 415]
 
-        if resp.status_code == 400 and 400 in expected:
-            raise exceptions.SWORD3BadRequest(
-                request_url, resp, "The server did not understand the request"
+        # attempt to load an error doc out of the request body
+        error_doc = None
+        if resp.body is not None and resp.body != "":
+            data = None
+            try:
+                data = json.loads(resp.body)
+            except:
+                # body isn't JSON
+                # this will be dealt with below
+                pass
+
+            if data is not None:
+                try:
+                    error_doc = Error(data)
+                except exceptions.SeamlessException as e:
+                    # not valid data
+                    # this will also be handled below
+                    pass
+
+        # first step in choosing what to raise is whether the status was expected
+        if resp.status_code not in expected:
+            name = error_doc.type if error_doc is not None else str(resp.status_code)
+            raise exceptions.UnexpectedSwordException(
+                "Received error code was not expected for this protocol operation",
+                response=resp,
+                error_doc=error_doc,
+                status_code=resp.status_code,
+                name=name
             )
-        elif (resp.status_code == 401 and 401 in expected) or (
-            resp.status_code == 403 and 403 in expected
-        ):
-            raise exceptions.SWORD3AuthenticationError(
-                request_url, resp, "Authentication or authorisation failed"
+
+        # next, if we were unable to extract an error document, see if we can raise just based on
+        # the status code
+        if error_doc is None or error_doc.type is None:
+            possibles = exceptions.SwordException.for_status_code(resp.status_code)
+            # if we only have one possible exception, raise it
+            if len(possibles) == 1:
+                raise possibles[0](possibles[0].reason, response=resp, request_url=request_url)
+
+            # if we've been given a request context, filter the exceptions by the ones relevant to that context
+            if request_context is not None:
+                possibles = [p for p in possibles if len(p.contexts) == 0 or request_context in p.contexts]
+
+            # if we're now down to one exception, raise it
+            if len(possibles) == 1:
+                raise possibles[0](possibles[0].reason, response=resp, request_url=request_url)
+
+            # if we haven't raised an exception in this case so far, then raise an Ambiguous error
+            raise exceptions.AmbiguousSwordException(
+                "Error received from server could have been due to a number of things, and the server did not include details",
+                response=resp,
+                error_doc=error_doc,
+                request_url=request_url,
+                status_code=resp.status_code
             )
-        elif resp.status_code == 404 and 404 in expected:
-            raise exceptions.SWORD3NotFound(
-                request_url, resp, "No resource found at requested URL"
-            )
-        elif resp.status_code == 405 and 405 in expected:
-            raise exceptions.SWORD3OperationNotAllowed(
-                request_url, resp, "The resource does not support this operation"
-            )
-        elif resp.status_code == 410 and 410 in expected:
-            raise exceptions.SWORD3NotFound(
-                request_url, resp, "The resource at requested URL has Gone"
-            )
-        elif resp.status_code == 412 and 412 in expected:
-            raise exceptions.SWORD3PreconditionFailed(
-                request_url,
-                resp,
-                "Your request could not be processed as-is, there may be inconsistencies in your request parameters",
-            )
-        elif resp.status_code == 413 and 413 in expected:
-            raise exceptions.SWORD3MaxSizeExceeded(
-                request_url,
-                resp,
-                "Your request exceeded the maximum deposit size for a single request against this server",
-            )
-        elif resp.status_code == 415 and 415 in expected:
-            raise exceptions.SWORD3UnsupportedMediaType(
-                request_url,
-                resp,
-                "The Content-Type that you sent was not supported by the server",
-            )
-        elif raise_generic_if_unexpected:
-            raise exceptions.SWORD3WireError(
-                request_url,
-                resp,
-                "Unexpected status code; unable to carry out protocol operation",
-            )
+
+        raisable = exceptions.SwordException.for_type(error_doc.type)
+        raise raisable(raisable.reason,
+                       response=resp,
+                       error_doc=error_doc,
+                       request_url=request_url
+        )
