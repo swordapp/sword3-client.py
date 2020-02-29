@@ -23,10 +23,10 @@ class TestService(TestCase):
         assert isinstance(service, ServiceDocument)
 
         client = SWORD3Client(http=MockHttpLayer(401))
-        with self.assertRaises(exceptions.AuthenticationFailed):
+        with self.assertRaises(exceptions.NoCredentialsSupplied):
             try:
                 service = client.get_service(SD_URL)
-            except exceptions.AuthenticationFailed as e:
+            except exceptions.NoCredentialsSupplied as e:
                 assert e.request_url == SD_URL
                 assert e.response is not None
                 assert e.message is not None
@@ -41,5 +41,5 @@ class TestService(TestCase):
             service = client.get_service(SD_URL)
 
         client = SWORD3Client(http=MockHttpLayer(405))
-        with self.assertRaises(exceptions.MethodNotAllowed):
+        with self.assertRaises(exceptions.UnexpectedSwordException):
             service = client.get_service(SD_URL)

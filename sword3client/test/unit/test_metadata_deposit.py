@@ -3,7 +3,7 @@ from unittest import TestCase
 from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer
 
-from sword3common import Metadata, ServiceDocument
+from sword3common import Metadata, ServiceDocument, exceptions
 from sword3common.test.fixtures import StatusFixtureFactory, MetadataFixtureFactory
 from sword3common import exceptions
 
@@ -79,10 +79,10 @@ class TestService(TestCase):
         assert isinstance(obj, Metadata)
 
         client = SWORD3Client(http=MockHttpLayer(401))
-        with self.assertRaises(exceptions.AuthenticationFailed):
+        with self.assertRaises(exceptions.NoCredentialsSupplied):
             try:
                 obj = client.get_metadata(MD_URL)
-            except exceptions.AuthenticationFailed as e:
+            except exceptions.NoCredentialsSupplied as e:
                 assert e.request_url == MD_URL
                 assert e.response is not None
                 assert e.message is not None

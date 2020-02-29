@@ -29,10 +29,10 @@ class TestObjectMethods(unittest.TestCase):
         assert isinstance(obj, StatusDocument)
 
         client = SWORD3Client(http=MockHttpLayer(401))
-        with self.assertRaises(exceptions.AuthenticationFailed):
+        with self.assertRaises(exceptions.NoCredentialsSupplied):
             try:
                 obj = client.get_object(OBJ_URL)
-            except exceptions.AuthenticationFailed as e:
+            except exceptions.NoCredentialsSupplied as e:
                 assert e.request_url == OBJ_URL
                 assert e.response is not None
                 assert e.message is not None
@@ -47,7 +47,7 @@ class TestObjectMethods(unittest.TestCase):
             obj = client.get_object(OBJ_URL)
 
         client = SWORD3Client(http=MockHttpLayer(405))
-        with self.assertRaises(exceptions.MethodNotAllowed):
+        with self.assertRaises(exceptions.UnexpectedSwordException):
             obj = client.get_service(OBJ_URL)
 
     def test_02_delete_object(self):
