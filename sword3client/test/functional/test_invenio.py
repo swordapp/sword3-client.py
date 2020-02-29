@@ -13,6 +13,7 @@ import hashlib
 import base64
 import os
 import shutil
+import math
 
 SERVICE_URL = "http://localhost:8000/service-document"
 DEPOSIT_URL = "http://localhost:8000/api/deposit"
@@ -891,3 +892,61 @@ class TestInvenio(TestCase):
         assert metadata.get_dc_field("creator") == metadata2.get_dc_field("creator")
         assert metadata.get_dcterms_field("rights") == metadata2.get_dcterms_field("rights")
         assert metadata.get_field("custom") == metadata2.get_field("custom")
+
+    def test_12_segmented_upload(self):
+        # set up by preparing our binary file to upload
+        bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
+        d = paths.sha256(bag)
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
+        file_size = os.path.getsize(bag)
+
+        # 1. Obtain the service document, which is where we will find a reference to the staging endpoint
+        client = SWORD3Client(HTTP_FACTORY.get_service())
+        sd = client.get_service(SERVICE_URL)
+
+        # 2. Initialise a segmented upload on the staging endpoint with the parameters derived from our test file
+        segment_count = 5
+        segment_size = math.ceil(file_size / segment_count)
+
+        client.set_http_layer(HTTP_FACTORY.initialise_segmented_upload())
+        resp = client.initialise_segmented_upload(
+            sd,
+            assembled_size=file_size,
+            segment_count=segment_count,
+            segment_size=segment_size,
+            digest=digest
+        )
+
+        temporary_url = resp.location
+        assert temporary_url is not None
+
+        # 3. Upload a couple of the file segments
+        client.set_http_layer(HTTP_FACTORY.upload_file_segment())
+        with open(bag, "rb") as f:
+            segment1 = f.read(segment_size)
+            stream1 = BytesIO(segment1)
+            client.upload_file_segment(temporary_url, stream1, 1)
+
+            segment2 = f.read(segment_size)
+            stream2 = BytesIO(segment2)
+            client.upload_file_segment(temporary_url, stream2, 2)
+
+        # 4. Retrieve the segmented file upload information to see if it contains what we expect
+        client.set_http_layer(HTTP_FACTORY.segmented_upload_status([1,2], [3,4,5], file_size, segment_size))
+        sus = client.segmented_upload_status(temporary_url)
+
+        assert sus.received == [1,2]
+        assert sus.expecting == [3,4,5]
+        assert sus.size == file_size
+        assert sus.segment_size == segment_size
+
+        # 5. Abort the upload
+        client.set_http_layer(HTTP_FACTORY.abort_segmented_upload())
+        resp = client.abort_segmented_upload(temporary_url)
+
+        assert resp.status_code == 204
+
+        # 6. Check that the upload has actually been aborted by attempting to retrieve again
+        client.set_http_layer(HTTP_FACTORY.not_found())
+        with self.assertRaises(exceptions.NotFound):
+            client.segmented_upload_status(temporary_url)

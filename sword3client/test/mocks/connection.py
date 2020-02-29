@@ -3,6 +3,7 @@ from sword3common.test.fixtures import (
     ServiceFixtureFactory,
     StatusFixtureFactory,
     MetadataFixtureFactory,
+    SegmentedUploadFixtureFactory
 )
 
 import json
@@ -197,3 +198,28 @@ class HttpMockFactory(object):
         body = json.dumps(StatusFixtureFactory.status_document(links))
         headers = {"Location": "http://example.com/object/10"}
         return MockHttpLayer(status, body, headers)
+
+    @classmethod
+    def initialise_segmented_upload(cls):
+        return MockHttpLayer(201, None, {"Location" : "http://example.com/temporary/1"})
+
+    @classmethod
+    def upload_file_segment(cls):
+        return MockHttpLayer(204, None, None)
+
+    @classmethod
+    def segmented_upload_status(cls, received, expecting, size, segment_size):
+        doc = SegmentedUploadFixtureFactory.segmented_upload_status(received, expecting, size, segment_size)
+        return MockHttpLayer(200, json.dumps(doc), {"Content-Type" : "application/json"})
+
+    @classmethod
+    def abort_segmented_upload(cls):
+        return MockHttpLayer(204, None, None)
+
+    @classmethod
+    def not_found(cls):
+        return MockHttpLayer(404, None, None)
+
+    @classmethod
+    def method_not_allowed(cls):
+        return MockHttpLayer(405, None, None)

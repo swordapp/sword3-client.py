@@ -784,7 +784,7 @@ class SWORD3Client(object):
                 resp, temporary_url, [400, 401, 403, 404]
             )
 
-    def segmented_file_upload_status(self,
+    def segmented_upload_status(self,
                                      temporary_url: str
                                      ) -> SegmentedFileUpload:
         resp = self._http.get(temporary_url)

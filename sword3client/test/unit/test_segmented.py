@@ -4,13 +4,16 @@ from sword3client import SWORD3Client
 
 from sword3common.exceptions import SeamlessException
 from sword3common import constants
+from sword3common.test.fixtures import SegmentedUploadFixtureFactory
 
 from sword3client.test.mocks.connection import MockHttpLayer
 
+import json
 import hashlib
 import base64
 import math
 from io import BytesIO
+
 
 class TestSegmented(TestCase):
     def test_01_initialise_segmented_upload(self):
@@ -56,5 +59,16 @@ class TestSegmented(TestCase):
 
         try:
             dr = client.abort_segmented_upload(TEMP_URL)
+        except SeamlessException as e:
+            print(e.message)
+
+    def test_04_segmented_file_upload_status(self):
+        TEMP_URL = "http://example.com/temporary"
+
+        doc = SegmentedUploadFixtureFactory.segmented_upload_status([1,2,3], [4,5])
+        client = SWORD3Client(http=MockHttpLayer(200, json.dumps(doc), {"Content-Type" : "application/json"}))
+
+        try:
+            dr = client.segmented_upload_status(TEMP_URL)
         except SeamlessException as e:
             print(e.message)
