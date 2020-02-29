@@ -950,3 +950,58 @@ class TestInvenio(TestCase):
         client.set_http_layer(HTTP_FACTORY.not_found())
         with self.assertRaises(exceptions.NotFound):
             client.segmented_upload_status(temporary_url)
+
+    def test_13_staging_file_deposit(self):
+        # set up by preparing our binary file to upload
+        bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
+        d = paths.sha256(bag)
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
+        file_size = os.path.getsize(bag)
+
+        # 1. Obtain the service document, which is where we will find a reference to the staging endpoint
+        client = SWORD3Client(HTTP_FACTORY.get_service())
+        sd = client.get_service(SERVICE_URL)
+
+        # 2. Initialise a segmented upload on the staging endpoint with the parameters derived from our test file
+        segment_count = 5
+        segment_size = math.ceil(file_size / segment_count)
+
+        client.set_http_layer(HTTP_FACTORY.initialise_segmented_upload())
+        resp = client.initialise_segmented_upload(
+            sd,
+            assembled_size=file_size,
+            segment_count=segment_count,
+            segment_size=segment_size,
+            digest=digest
+        )
+        temporary_url = resp.location
+
+        # 3. Upload all of the file segments
+        client.set_http_layer(HTTP_FACTORY.upload_file_segment())
+        with open(bag, "rb") as f:
+            for i in range(segment_count):
+                segment = f.read(segment_size)
+                stream = BytesIO(segment)
+                client.upload_file_segment(temporary_url, stream, i)
+
+        # 4. Deposit the temporary file to the repository
+        client.set_http_layer(HTTP_FACTORY.create_object_with_temporary_file(links=[
+            {
+                "@id" : "http://example.com/object/1/temp.zip",
+                "rel" : [constants.Rel.OriginalDeposit, constants.Rel.ByReferenceDeposit, constants.Rel.FileSetFile],
+                "byReference" : temporary_url,
+                "status" : constants.FileState.Pending
+            }
+        ]))
+        resp = client.create_object_with_temporary_file(SERVICE_URL, temporary_url, "test.zip", "application/zip")
+
+        assert resp.status_code == 201
+        assert resp.location is not None
+
+        status = resp.status_document
+
+        ods = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 1
+        brl = ods[0]
+        assert "byReference" in brl
+        assert brl["byReference"] == temporary_url

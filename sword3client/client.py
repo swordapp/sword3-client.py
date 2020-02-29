@@ -560,6 +560,33 @@ class SWORD3Client(object):
         return body_bytes, headers
 
     #####################################################
+    ## Segmented file deposit operations
+    #####################################################
+
+    def create_object_with_temporary_file(
+        self,
+        service: typing.Union[ServiceDocument, str],
+        temporary_url: str,
+        filename: str,
+        content_type: str,
+        content_length: int = None,
+        packaging: str = None,
+        digest: typing.Dict[str, str] = None,
+        in_progress: bool = False,
+    ) -> SWORDResponse:
+
+        br = ByReference()
+        br.add_file(temporary_url,
+                    filename,
+                    content_type,
+                    True,
+                    content_length=content_length,
+                    packaging=packaging,
+                    digest=digest
+                    )
+        return self.create_object_by_reference(service, br, in_progress=in_progress)
+
+    #####################################################
     ## Object level protocol operations
     #####################################################
 

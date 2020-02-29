@@ -4,7 +4,7 @@ from sword3client import SWORD3Client
 
 from sword3common.exceptions import SeamlessException
 from sword3common import constants
-from sword3common.test.fixtures import SegmentedUploadFixtureFactory
+from sword3common.test.fixtures import SegmentedUploadFixtureFactory, StatusFixtureFactory
 
 from sword3client.test.mocks.connection import MockHttpLayer
 
@@ -70,5 +70,17 @@ class TestSegmented(TestCase):
 
         try:
             dr = client.segmented_upload_status(TEMP_URL)
+        except SeamlessException as e:
+            print(e.message)
+
+    def test_05_create_object_with_temporary_file(self):
+        SERVICE_URL = "http://example.com/service"
+        TEMP_URL = "http://example.com/temporary"
+        BODY = json.dumps(StatusFixtureFactory.status_document())
+        HEADERS = {"Location": "http://example.com/location"}
+
+        client = SWORD3Client(http=MockHttpLayer(201, BODY, HEADERS))
+        try:
+            dr = client.create_object_with_temporary_file(SERVICE_URL, TEMP_URL, "test.zip", "application/octet-stream")
         except SeamlessException as e:
             print(e.message)

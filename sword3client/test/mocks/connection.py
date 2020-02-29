@@ -223,3 +223,9 @@ class HttpMockFactory(object):
     @classmethod
     def method_not_allowed(cls):
         return MockHttpLayer(405, None, None)
+
+    @classmethod
+    def create_object_with_temporary_file(cls, links=None):
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        headers = {"Location": "http://example.com/object/10"}
+        return MockHttpLayer(201, body, headers)
