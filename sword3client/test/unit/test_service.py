@@ -8,7 +8,7 @@ from sword3client.exceptions import (
     SWORD3NotFound,
 )
 
-from sword3common import ServiceDocument
+from sword3common import ServiceDocument, exceptions
 from sword3common.test.fixtures import ServiceFixtureFactory
 
 import json
@@ -28,23 +28,23 @@ class TestService(TestCase):
         assert isinstance(service, ServiceDocument)
 
         client = SWORD3Client(http=MockHttpLayer(401))
-        with self.assertRaises(SWORD3AuthenticationError):
+        with self.assertRaises(exceptions.NoCredentialsSupplied):
             try:
                 service = client.get_service(SD_URL)
-            except SWORD3AuthenticationError as e:
+            except exceptions.NoCredentialsSupplied as e:
                 assert e.request_url == SD_URL
                 assert e.response is not None
                 assert e.message is not None
                 raise
 
         client = SWORD3Client(http=MockHttpLayer(403))
-        with self.assertRaises(SWORD3AuthenticationError):
+        with self.assertRaises(exceptions.AuthenticationFailed):
             service = client.get_service(SD_URL)
 
         client = SWORD3Client(http=MockHttpLayer(404))
-        with self.assertRaises(SWORD3NotFound):
+        with self.assertRaises(exceptions.NotFound):
             service = client.get_service(SD_URL)
 
         client = SWORD3Client(http=MockHttpLayer(405))
-        with self.assertRaises(SWORD3WireError):
+        with self.assertRaises(exceptions.UnexpectedSwordException):
             service = client.get_service(SD_URL)

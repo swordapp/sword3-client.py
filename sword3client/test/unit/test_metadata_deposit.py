@@ -8,7 +8,7 @@ from sword3client.exceptions import (
     SWORD3WireError,
 )
 
-from sword3common import Metadata, ServiceDocument
+from sword3common import Metadata, ServiceDocument, exceptions
 from sword3common.test.fixtures import StatusFixtureFactory, MetadataFixtureFactory
 from sword3common.exceptions import SeamlessException
 
@@ -84,25 +84,25 @@ class TestService(TestCase):
         assert isinstance(obj, Metadata)
 
         client = SWORD3Client(http=MockHttpLayer(401))
-        with self.assertRaises(SWORD3AuthenticationError):
+        with self.assertRaises(exceptions.NoCredentialsSupplied):
             try:
                 obj = client.get_metadata(MD_URL)
-            except SWORD3AuthenticationError as e:
+            except exceptions.NoCredentialsSupplied as e:
                 assert e.request_url == MD_URL
                 assert e.response is not None
                 assert e.message is not None
                 raise
 
         client = SWORD3Client(http=MockHttpLayer(403))
-        with self.assertRaises(SWORD3AuthenticationError):
+        with self.assertRaises(exceptions.AuthenticationFailed):
             obj = client.get_metadata(MD_URL)
 
         client = SWORD3Client(http=MockHttpLayer(404))
-        with self.assertRaises(SWORD3NotFound):
+        with self.assertRaises(exceptions.NotFound):
             obj = client.get_metadata(MD_URL)
 
         client = SWORD3Client(http=MockHttpLayer(405))
-        with self.assertRaises(SWORD3WireError):
+        with self.assertRaises(exceptions.MethodNotAllowed):
             obj = client.get_metadata(MD_URL)
 
     def test_06_replace_object_with_metadata(self):

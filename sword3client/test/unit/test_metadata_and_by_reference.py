@@ -15,7 +15,7 @@ from sword3common.exceptions import SeamlessException
 import json
 
 
-class TestService(TestCase):
+class TestMDBR(TestCase):
     def test_01_create_object_with_metadata_and_by_reference(self):
 
         SD_URL = "http://example.com/service-document"
