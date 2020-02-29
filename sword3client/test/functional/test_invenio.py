@@ -257,7 +257,7 @@ class TestInvenio(TestCase):
                 links=[
                     {
                         "@id": "http://example.com/object/10/test.bin",
-                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "rel": [constants.Rel.OriginalDeposit, constants.Rel.FileSetFile],
                         "contentType": "text/plain",
                         "packaging": "http://purl.org/net/sword/3.0/package/Binary",
                     }
@@ -361,7 +361,7 @@ class TestInvenio(TestCase):
                 links=[
                     {
                         "@id": "http://example.com/object/10/test.bin",
-                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "rel": [constants.Rel.OriginalDeposit, constants.Rel.FileSetFile],
                         "contentType": "text/plain",
                         "packaging": constants.PACKAGE_BINARY,
                     }
@@ -622,7 +622,9 @@ class TestInvenio(TestCase):
         status = client.get_object(status)
         assert len(status.list_links(rels=[constants.REL_ORIGINAL_DEPOSIT])) == 1
 
-        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=Metadata()))
+        resp_md = Metadata()
+        resp_md.add_dc_field("title", "The title")
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata=resp_md))
         metadata = client.get_metadata(status)
         assert metadata.get_dc_field("title") == "The title"
 
@@ -711,6 +713,24 @@ class TestInvenio(TestCase):
         assert metadata2.get_dc_field("title") is None
 
         # Refresh status document
+        client.set_http_layer(
+            HTTP_FACTORY.get_object(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                    {
+                        "@id": "http://example.com/object/10/test2.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                ]
+            )
+        )
         status = client.get_object(status)
 
         # 5. Delete one of the files

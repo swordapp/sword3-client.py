@@ -575,9 +575,11 @@ class SWORD3Client(object):
             try:
                 return StatusDocument(data)
             except exceptions.SeamlessException as e:
-                raise exceptions.SWORD3InvalidDataFromServer(
-                    e, "Object retrieval got invalid status document"
-                )
+                raise exceptions.InvalidDataFromServer(
+                    "Object retrieval got invalid status document: {x}".format(x=e.message),
+                    response=resp,
+                    request_url=object_url
+                ) from e
         else:
             self._raise_for_status_code(
                 resp, object_url, [400, 401, 403, 404, 410, 412]
