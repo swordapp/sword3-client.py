@@ -548,6 +548,26 @@ class SWORD3Client(object):
                 resp, service_url, [400, 401, 403, 404, 405, 412, 413, 415]
             )
 
+    def append_metadata_and_by_reference(self,
+            status_or_object_url: typing.Union[ServiceDocument, str],
+            metadata_and_by_reference: MetadataAndByReference,
+            digest: typing.Dict[str, str] = None,
+            metadata_format: str = None,
+            in_progress: bool = False,
+    ) -> SWORDResponse:
+        object_url = self._get_url(status_or_object_url, "object_url")
+        body_bytes, headers = self._mdbr_deposit_properties(
+            metadata_and_by_reference, digest,  metadata_format, in_progress=in_progress,
+        )
+        resp = self._http.post(object_url, body_bytes, headers)
+
+        if resp.status_code in [200, 202]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, object_url, [400, 401, 403, 404, 412, 413, 415]
+            )
+
     def _mdbr_deposit_properties(self,
                                  metadata_and_by_reference:MetadataAndByReference,
                                  digest: typing.Dict[str, str] = None,

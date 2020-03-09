@@ -1006,7 +1006,7 @@ class TestInvenio(TestCase):
         assert "byReference" in brl
         assert brl["byReference"] == temporary_url
 
-    def test_14_append_by_reference_and_metadata(self):
+    def test_14_append_by_reference_then_mdbr(self):
         # 1. Create an object with the metadata
         metadata = Metadata()
         metadata.add_dc_field("creator", "Test")
@@ -1034,7 +1034,6 @@ class TestInvenio(TestCase):
             }
         ]
 
-        # 1. Create an object by reference
         br = ByReference()
         br.add_file(HOSTED_FILE,
                     "test.bin",
@@ -1046,3 +1045,57 @@ class TestInvenio(TestCase):
 
         assert dr.status_code == 200
 
+        # 3. Look in the files to see if we can see the byReference file
+        status = dr.status_document
+        ods = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 1
+        brl = ods[0]
+        assert "byReference" in brl
+        assert brl["byReference"] == HOSTED_FILE
+
+
+        # 4. Now append again with both metadata and by-reference
+        HOSTED_FILE_2 = "https://github.com/swordapp/sword3-client.py/raw/master/sword3client/test/resources/SWORDBagIt.zip#different"
+        LINKS.append({
+            "status": constants.FileState.Pending,
+            "eTag": "1",
+            "@id": "http://www.myorg.ac.uk/sword3/object1/reference2.zip",
+            "byReference": HOSTED_FILE,
+            "rel": [
+                constants.Rel.ByReferenceDeposit,
+                constants.Rel.OriginalDeposit,
+                constants.Rel.FileSetFile
+            ]
+        })
+
+        br2 = ByReference()
+        br2.add_file(HOSTED_FILE_2,
+                    "test2.bin",
+                    "application/octet-stream",
+                    True)
+
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        mdbr = MetadataAndByReference(metadata, br2)
+
+        client = SWORD3Client(HTTP_FACTORY.append_metadata_and_by_reference(links=LINKS))
+        dr2 = client.append_metadata_and_by_reference(status, mdbr)
+
+        # 5. Check the files to see that the new by reference has been attached
+        status2 = dr2.status_document
+        ods = status2.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 2
+        for brl in ods:
+            assert "byReference" in brl
+            assert brl["byReference"] in [HOSTED_FILE, HOSTED_FILE_2]
+
+        # 6. check out metadata was appended
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata))
+        metadata2 = client.get_metadata(status)
+
+        assert metadata.get_dc_field("creator") == metadata2.get_dc_field("creator")
+        assert metadata.get_dcterms_field("rights") == metadata2.get_dcterms_field("rights")
+        assert metadata.get_field("custom") == metadata2.get_field("custom")
