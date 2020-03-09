@@ -229,3 +229,8 @@ class HttpMockFactory(object):
         body = json.dumps(StatusFixtureFactory.status_document(links))
         headers = {"Location": "http://example.com/object/10"}
         return MockHttpLayer(201, body, headers)
+
+    @classmethod
+    def append_by_reference(cls, links=None):
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        return MockHttpLayer(200, None, body)

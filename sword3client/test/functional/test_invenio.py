@@ -1005,3 +1005,44 @@ class TestInvenio(TestCase):
         brl = ods[0]
         assert "byReference" in brl
         assert brl["byReference"] == temporary_url
+
+    def test_14_append_by_reference_and_metadata(self):
+        # 1. Create an object with the metadata
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata, in_progress=True)
+
+        url = dr.location
+
+        # 2. Append a file by reference
+        HOSTED_FILE = "https://github.com/swordapp/sword3-client.py/raw/master/sword3client/test/resources/SWORDBagIt.zip"
+        LINKS = [
+            {
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference.zip",
+                "byReference": HOSTED_FILE,
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+            }
+        ]
+
+        # 1. Create an object by reference
+        br = ByReference()
+        br.add_file(HOSTED_FILE,
+                    "test.bin",
+                    "application/octet-stream",
+                    True)
+
+        client = SWORD3Client(HTTP_FACTORY.append_by_reference(links=LINKS))
+        dr = client.append_by_reference(url, br)
+
+        assert dr.status_code == 200
+
