@@ -1213,3 +1213,64 @@ class TestInvenio(TestCase):
                 trip_wire = True
 
         assert trip_wire
+
+    def test_16_replace_files_with_by_reference(self):
+        HOSTED_FILE = "https://github.com/swordapp/sword3-client.py/raw/master/sword3client/test/resources/SWORDBagIt.zip"
+
+        # 1. Create the object with a binary stream
+        bytes = b"this is a random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {constants.DIGEST_SHA_256: d.digest()}
+        stream = BytesIO(bytes)
+
+        client = SWORD3Client(
+            HTTP_FACTORY.create_object_with_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                ]
+            )
+        )
+        dr = client.create_object_with_binary(
+            SERVICE_URL,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+        )
+
+        # 2. Replace that file by reference
+        status = dr.status_document
+        links = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        file_url = links[0].get("@id")
+
+        br = ByReference()
+        br.add_file(HOSTED_FILE,
+                    "test2.bin",
+                    "application/octet-stream",
+                    True)
+
+        client.set_http_layer(HTTP_FACTORY.replace_file_by_reference())
+        dr2 = client.replace_file_by_reference(file_url, br)
+
+        # 3. Retrieve the object
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[{
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference.zip",
+                "byReference": HOSTED_FILE,
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+        }]))
+        status2 = client.get_object(status)
+        links = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(links) == 1

@@ -751,6 +751,29 @@ class SWORD3Client(object):
         else:
             self._raise_for_status_code(resp, file_url, [400, 401, 403, 404, 405, 412])
 
+    def replace_file_by_reference(
+            self,
+            file_url: str,
+            by_reference: ByReference,
+            digest: typing.Dict[str, str] = None,
+            filename: str = "untitled",
+            # FIXME: an issue has been raised for this - what happens if no filename is provided
+            content_length: int = None,
+    ):
+        body_bytes, headers = self._by_reference_deposit_properties(
+            by_reference,
+            digest
+        )
+
+        resp = self._http.put(file_url, body_bytes, headers)
+
+        if resp.status_code == 204:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, file_url, [400, 401, 403, 404, 405, 412, 413]
+            )
+
     ###########################################################
     ## Fileset protocol operations
     ###########################################################

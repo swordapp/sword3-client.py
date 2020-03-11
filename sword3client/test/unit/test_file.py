@@ -6,7 +6,7 @@ from sword3client import SWORD3Client
 from sword3client.test.mocks.connection import MockHttpLayer, HttpMockFactory
 from sword3client.lib import paths
 
-from sword3common import constants
+from sword3common import constants, ByReference, exceptions
 
 
 class TestFile(unittest.TestCase):
@@ -78,4 +78,20 @@ class TestFile(unittest.TestCase):
             data_in,
             "application/octet-stream",
             {constants.DIGEST_SHA_256: d1.digest()},
+        )
+
+    def test_06_replace_file_by_reference(self):
+        FILE_URL = "http://example.com/objects/10/files/1"
+
+        br = ByReference()
+        try:
+            br.add_file("http://example.com/br/1.zip", "myfile.zip", "application/zip", True,
+                        content_length=1000, ttl="2021-01-01T00:00:00Z")
+        except exceptions.SeamlessException as e:
+            print(e.message)
+
+        client = SWORD3Client(http=MockHttpLayer(204))
+        dr = client.replace_file_by_reference(
+            FILE_URL,
+            br
         )
