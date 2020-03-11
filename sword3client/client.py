@@ -626,6 +626,29 @@ class SWORD3Client(object):
                     )
         return self.create_object_by_reference(service, br, in_progress=in_progress)
 
+    def append_temporary_file(
+        self,
+        status_or_object_url: typing.Union[ServiceDocument, str],
+        temporary_url: str,
+        filename: str,
+        content_type: str,
+        content_length: int = None,
+        packaging: str = None,
+        digest: typing.Dict[str, str] = None,
+        in_progress: bool = False,
+    ) -> SWORDResponse:
+
+        br = ByReference()
+        br.add_file(temporary_url,
+                    filename,
+                    content_type,
+                    True,
+                    content_length=content_length,
+                    packaging=packaging,
+                    digest=digest
+                    )
+        return self.append_by_reference(status_or_object_url, br, in_progress=in_progress)
+
     #####################################################
     ## Object level protocol operations
     #####################################################

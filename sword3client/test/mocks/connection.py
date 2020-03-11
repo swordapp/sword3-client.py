@@ -239,3 +239,8 @@ class HttpMockFactory(object):
     def append_metadata_and_by_reference(cls, links=None):
         body = json.dumps(StatusFixtureFactory.status_document(links))
         return MockHttpLayer(200, body, None)
+
+    @classmethod
+    def append_temporary_file(cls, links=None):
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        return MockHttpLayer(200, body, None)

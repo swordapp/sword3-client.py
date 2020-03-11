@@ -951,7 +951,7 @@ class TestInvenio(TestCase):
         with self.assertRaises(exceptions.NotFound):
             client.segmented_upload_status(temporary_url)
 
-    def test_13_staging_file_deposit(self):
+    def test_13_temporary_file_deposit(self):
         # set up by preparing our binary file to upload
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
@@ -1099,3 +1099,117 @@ class TestInvenio(TestCase):
         assert metadata.get_dc_field("creator") == metadata2.get_dc_field("creator")
         assert metadata.get_dcterms_field("rights") == metadata2.get_dcterms_field("rights")
         assert metadata.get_field("custom") == metadata2.get_field("custom")
+
+    def test_15_append_temporary_file(self):
+        # 1. Create an object with the metadata
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+
+        # set up by preparing our binary file to upload
+        bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
+        d = paths.sha256(bag)
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
+        file_size = os.path.getsize(bag)
+
+        # 2. Obtain the service document, which is where we will find a reference to the staging endpoint
+        client = SWORD3Client(HTTP_FACTORY.get_service())
+        sd = client.get_service(SERVICE_URL)
+
+        # 3. Initialise a segmented upload on the staging endpoint with the parameters derived from our test file
+        segment_count = 5
+        segment_size = math.ceil(file_size / segment_count)
+
+        client.set_http_layer(HTTP_FACTORY.initialise_segmented_upload())
+        resp = client.initialise_segmented_upload(
+            sd,
+            assembled_size=file_size,
+            segment_count=segment_count,
+            segment_size=segment_size,
+            digest=digest
+        )
+        temporary_url = resp.location
+
+        # 4. Upload all of the file segments
+        client.set_http_layer(HTTP_FACTORY.upload_file_segment())
+        with open(bag, "rb") as f:
+            for i in range(segment_count):
+                segment = f.read(segment_size)
+                stream = BytesIO(segment)
+                client.upload_file_segment(temporary_url, stream, i)
+
+        # 5. Deposit the temporary file to the repository
+        client.set_http_layer(HTTP_FACTORY.append_temporary_file(links=[
+            {
+                "@id": "http://example.com/object/1/temp.zip",
+                "rel": [constants.Rel.OriginalDeposit, constants.Rel.ByReferenceDeposit, constants.Rel.FileSetFile],
+                "byReference": temporary_url,
+                "status": constants.FileState.Pending
+            }
+        ]))
+        resp = client.append_temporary_file(dr.status_document, temporary_url, "test.zip", "application/octet-stream")
+
+        assert resp.status_code == 200
+
+        status = resp.status_document
+
+        ods = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 1
+        brl = ods[0]
+        assert "byReference" in brl
+        assert brl["byReference"] == temporary_url
+
+        # 6. Now send upload the file again, so we can send it as a package
+        client.set_http_layer(HTTP_FACTORY.initialise_segmented_upload())
+        resp = client.initialise_segmented_upload(
+            sd,
+            assembled_size=file_size,
+            segment_count=segment_count,
+            segment_size=segment_size,
+            digest=digest
+        )
+        temporary_url = resp.location
+
+        # 7. Upload all of the file segments (again)
+        client.set_http_layer(HTTP_FACTORY.upload_file_segment())
+        with open(bag, "rb") as f:
+            for i in range(segment_count):
+                segment = f.read(segment_size)
+                stream = BytesIO(segment)
+                client.upload_file_segment(temporary_url, stream, i)
+
+        # 8. Deposit the temporary file to the repository as a package
+        client.set_http_layer(HTTP_FACTORY.append_temporary_file(links=[
+            {
+                "@id": "http://example.com/object/1/temp.zip",
+                "rel": [constants.Rel.OriginalDeposit, constants.Rel.ByReferenceDeposit, constants.Rel.FileSetFile],
+                "byReference": temporary_url,
+                "status": constants.FileState.Pending
+            },
+            {
+                "@id": "http://example.com/object/1/temp2.zip",
+                "rel": [constants.Rel.OriginalDeposit, constants.Rel.ByReferenceDeposit, constants.Rel.FileSetFile],
+                "byReference": temporary_url,
+                "status": constants.FileState.Pending,
+                "packaging" : constants.PACKAGE_SWORDBAGIT
+            }
+        ]))
+        resp = client.append_temporary_file(dr.status_document, temporary_url, "test2.zip", "application/zip", packaging=constants.PACKAGE_SWORDBAGIT)
+
+        assert resp.status_code == 200
+
+        status = resp.status_document
+
+        ods = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 2
+        trip_wire = False
+        for brl in ods:
+            if "packaging" in brl:
+                assert brl["packaging"] == constants.PACKAGE_SWORDBAGIT
+                trip_wire = True
+
+        assert trip_wire

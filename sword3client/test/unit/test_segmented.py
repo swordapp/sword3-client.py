@@ -84,3 +84,14 @@ class TestSegmented(TestCase):
             dr = client.create_object_with_temporary_file(SERVICE_URL, TEMP_URL, "test.zip", "application/octet-stream")
         except SeamlessException as e:
             print(e.message)
+
+    def test_06_append_temporary_file(self):
+        OBJ_URL = "http://example.com/object/1"
+        TEMP_URL = "http://example.com/temporary"
+        BODY = json.dumps(StatusFixtureFactory.status_document())
+
+        client = SWORD3Client(http=MockHttpLayer(200, BODY, None))
+        try:
+            dr = client.append_temporary_file(OBJ_URL, TEMP_URL, "test.zip", "application/octet-stream")
+        except SeamlessException as e:
+            print(e.message)
