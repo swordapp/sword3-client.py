@@ -67,3 +67,19 @@ class TestMDBR(TestCase):
             dr = client.append_metadata_and_by_reference(OBJ_URL, mdbr)
         except SeamlessException as e:
             print(e.message)
+
+    def test_03_replace_fileset_by_reference(self):
+        FILESET_URL = "http://example.com/objects/10/files"
+
+        br = ByReference()
+        try:
+            br.add_file("http://example.com/br/1.zip", "myfile.zip", "application/zip", True,
+                        content_length=1000, ttl="2021-01-01T00:00:00Z")
+        except SeamlessException as e:
+            print(e.message)
+
+        client = SWORD3Client(http=MockHttpLayer(204, None, None))
+        dr = client.replace_fileset_by_reference(
+            FILESET_URL,
+            br,
+        )

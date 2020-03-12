@@ -252,3 +252,7 @@ class HttpMockFactory(object):
     @classmethod
     def replace_file_with_temporary_file(cls):
         return MockHttpLayer(204, None, None)
+
+    @classmethod
+    def replace_fileset_by_reference(cls):
+        return MockHttpLayer(204, None, None)

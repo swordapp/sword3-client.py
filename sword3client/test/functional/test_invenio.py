@@ -1275,6 +1275,51 @@ class TestInvenio(TestCase):
         links = status2.list_links(rels=[constants.Rel.OriginalDeposit])
         assert len(links) == 1
 
+        # 4. Now replace the enitre fileset with a couple of by reference files
+        br2 = ByReference()
+        br2.add_file(HOSTED_FILE,
+                    "test3.bin",
+                    "application/octet-stream",
+                    True)
+        br2.add_file(HOSTED_FILE + "#different",
+                    "test4.bin",
+                    "application/octet-stream",
+                    True)
+
+        client.set_http_layer(HTTP_FACTORY.replace_fileset_by_reference())
+        dr3 = client.replace_fileset_by_reference(status2, br2)
+
+        assert dr3.status_code == 204
+
+        # 5. Retrieve the object again
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[
+            {
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference2.zip",
+                "byReference": HOSTED_FILE,
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+            },
+            {
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference3.zip",
+                "byReference": HOSTED_FILE + "#different",
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+            }
+        ]))
+        status3 = client.get_object(status)
+        links = status3.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(links) == 2
+
     def test_17_replace_file_with_temporary_file(self):
         # set up by preparing our binary file to upload
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")

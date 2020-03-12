@@ -835,6 +835,25 @@ class SWORD3Client(object):
                 resp, fileset_url, [400, 401, 403, 404, 405, 412]
             )
 
+    def replace_fileset_by_reference(self,
+        status_or_fileset_url: typing.Union[StatusDocument, str],
+        by_reference: ByReference,
+        digest: typing.Dict[str, str] = None
+    ) -> SWORDResponse:
+        fileset_url = self._get_url(status_or_fileset_url, "fileset_url")
+        body_bytes, headers = self._by_reference_deposit_properties(
+            by_reference,
+            digest,
+        )
+        resp = self._http.put(fileset_url, body_bytes, headers)
+
+        if resp.status_code in [202, 204]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, fileset_url, [400, 401, 403, 404, 405, 412, 413]
+            )
+
     ###########################################################
     ## Segmented upload operations
     ###########################################################
