@@ -755,10 +755,7 @@ class SWORD3Client(object):
             self,
             file_url: str,
             by_reference: ByReference,
-            digest: typing.Dict[str, str] = None,
-            filename: str = "untitled",
-            # FIXME: an issue has been raised for this - what happens if no filename is provided
-            content_length: int = None,
+            digest: typing.Dict[str, str] = None
     ):
         body_bytes, headers = self._by_reference_deposit_properties(
             by_reference,
@@ -773,6 +770,26 @@ class SWORD3Client(object):
             self._raise_for_status_code(
                 resp, file_url, [400, 401, 403, 404, 405, 412, 413]
             )
+
+    def replace_file_with_temporary_file(
+            self,
+            file_url: str,
+            temporary_url: str,
+            filename: str,
+            content_type: str,
+            content_length: int = None,
+            digest: typing.Dict[str, str] = None
+    ) -> SWORDResponse:
+
+        br = ByReference()
+        br.add_file(temporary_url,
+                    filename,
+                    content_type,
+                    True,
+                    content_length=content_length,
+                    digest=digest
+                    )
+        return self.replace_file_by_reference(file_url, br)
 
     ###########################################################
     ## Fileset protocol operations
