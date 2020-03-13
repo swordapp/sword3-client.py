@@ -1534,7 +1534,7 @@ class TestInvenio(TestCase):
         assert "byReference" in brl
         assert brl["byReference"] == temporary_url
 
-    def test_19_replace_object_by_reference(self):
+    def test_19_replace_object_by_reference_and_mdbr(self):
         HOSTED_FILE = "https://github.com/swordapp/sword3-client.py/raw/master/sword3client/test/resources/SWORDBagIt.zip"
 
         # 1. Create an object with the metadata
@@ -1614,7 +1614,54 @@ class TestInvenio(TestCase):
         ]))
         dr3 = client.replace_object_by_reference(status, br)
 
+        # 4. Check the links that we expect
         status2 = dr3.status_document
         links = status2.list_links(rels=[constants.Rel.OriginalDeposit])
         assert len(links) == 2
+
+        # 5. Acquire the metadata and check that it is empty
+        client.set_http_layer(HTTP_FACTORY.get_metadata(Metadata()))
+        metadata2 = client.get_metadata(status)
+
+        assert metadata2.get_dc_field("creator") is None
+        assert metadata2.get_dcterms_field("rights") is None
+        assert metadata2.get_field("custom") is None
+
+        # 6. Now replace the metadata and by reference files at the same time
+        br = ByReference()
+        br.add_file(HOSTED_FILE + "#moredifferent",
+                    "test3.bin",
+                    "application/octet-stream",
+                    True)
+
+        metadata3 = Metadata()
+        metadata3.add_dc_field("title", "Replacement")
+
+        mdbr = MetadataAndByReference(metadata3, br)
+
+        client.set_http_layer(HTTP_FACTORY.replace_object_with_metadata_and_by_reference(links=[
+            {
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference3.zip",
+                "byReference": HOSTED_FILE + "#moredifferent",
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+            }
+        ]))
+        dr4 = client.replace_object_with_metadata_and_by_reference(dr3.status_document, mdbr)
+
+        assert dr4.status_code == 200
+        status3 = dr4.status_document
+        links = status3.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(links) == 1
+
+        # 7. Retrieve the metadata and check it was replaced
+        client.set_http_layer(HTTP_FACTORY.get_metadata(metadata3))
+        metadata2 = client.get_metadata(status)
+
+        assert metadata2.get_dc_field("title") == "Replacement"
 

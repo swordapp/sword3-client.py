@@ -265,3 +265,8 @@ class HttpMockFactory(object):
     def replace_object_by_reference(cls, links):
         body = json.dumps(StatusFixtureFactory.status_document(links))
         return MockHttpLayer(200, body, None)
+
+    @classmethod
+    def replace_object_with_metadata_and_by_reference(cls, links):
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        return MockHttpLayer(200, body, None)
