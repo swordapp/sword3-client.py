@@ -1533,3 +1533,88 @@ class TestInvenio(TestCase):
         brl = ods[0]
         assert "byReference" in brl
         assert brl["byReference"] == temporary_url
+
+    def test_19_replace_object_by_reference(self):
+        HOSTED_FILE = "https://github.com/swordapp/sword3-client.py/raw/master/sword3client/test/resources/SWORDBagIt.zip"
+
+        # 1. Create an object with the metadata
+        metadata = Metadata()
+        metadata.add_dc_field("creator", "Test")
+        metadata.add_dcterms_field("rights", "All of them")
+        metadata.add_field("custom", "entry")
+
+        client = SWORD3Client(HTTP_FACTORY.create_object_with_metadata())
+        dr = client.create_object_with_metadata(SERVICE_URL, metadata)
+
+        # 2. add a binary file
+        bytes = b"this is another random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {constants.DIGEST_SHA_256: d.digest()}
+        stream = BytesIO(bytes)
+
+        client = SWORD3Client(
+            HTTP_FACTORY.add_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.Rel.OriginalDeposit, constants.Rel.FileSetFile],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    }
+                ]
+            )
+        )
+        dr2 = client.add_binary(
+            dr.status_document,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+            in_progress=True,
+        )
+
+        # 3. Replace the object by reference
+        status = dr2.status_document
+
+        br = ByReference()
+        br.add_file(HOSTED_FILE,
+                     "test3.bin",
+                     "application/octet-stream",
+                     True)
+        br.add_file(HOSTED_FILE + "#different",
+                     "test4.bin",
+                     "application/octet-stream",
+                     True)
+
+        client.set_http_layer(HTTP_FACTORY.replace_object_by_reference(links=[
+            {
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference.zip",
+                "byReference": HOSTED_FILE,
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+            },
+            {
+                "status": constants.FileState.Pending,
+                "eTag": "1",
+                "@id": "http://www.myorg.ac.uk/sword3/object1/reference2.zip",
+                "byReference": HOSTED_FILE + "#different",
+                "rel": [
+                    constants.Rel.ByReferenceDeposit,
+                    constants.Rel.OriginalDeposit,
+                    constants.Rel.FileSetFile
+                ]
+            },
+        ]))
+        dr3 = client.replace_object_by_reference(status, br)
+
+        status2 = dr3.status_document
+        links = status2.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(links) == 2
+

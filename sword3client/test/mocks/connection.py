@@ -260,3 +260,8 @@ class HttpMockFactory(object):
     @classmethod
     def replace_fileset_with_temporary_file(cls):
         return MockHttpLayer(204, None, None)
+
+    @classmethod
+    def replace_object_by_reference(cls, links):
+        body = json.dumps(StatusFixtureFactory.status_document(links))
+        return MockHttpLayer(200, body, None)

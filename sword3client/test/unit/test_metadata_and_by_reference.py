@@ -83,3 +83,22 @@ class TestMDBR(TestCase):
             FILESET_URL,
             br,
         )
+
+    def test_04_replace_object_by_reference(self):
+        OBJ_URL = "http://example.com/obect/10"
+        BODY = json.dumps(StatusFixtureFactory.status_document())
+        HEADERS = {"Location": "http://example.com/location"}
+
+        client = SWORD3Client(http=MockHttpLayer(200, BODY, HEADERS))
+
+        br = ByReference()
+        try:
+            br.add_file("http://example.com/br/1.zip", "myfile.zip", "application/zip", True,
+                        content_length=1000, ttl="2021-01-01T00:00:00Z")
+        except SeamlessException as e:
+            print(e.message)
+
+        try:
+            dr = client.replace_object_by_reference(OBJ_URL, br)
+        except SeamlessException as e:
+            print(e.message)

@@ -689,6 +689,27 @@ class SWORD3Client(object):
                 resp, object_url, [400, 401, 403, 404, 405, 412]
             )
 
+    def replace_object_by_reference(self,
+        status_or_object_url: typing.Union[StatusDocument, str],
+        by_reference: ByReference,
+        digest: typing.Dict[str, str] = None,
+        in_progress: bool = False,
+    ) -> SWORDResponse:
+        object_url = self._get_url(status_or_object_url, "object_url")
+        body_bytes, headers = self._by_reference_deposit_properties(
+            by_reference,
+            digest,
+            in_progress=in_progress
+        )
+        resp = self._http.put(object_url, body_bytes, headers)
+
+        if resp.status_code in [200, 202]:
+            return SWORDResponse(resp)
+        else:
+            self._raise_for_status_code(
+                resp, object_url, [400, 401, 403, 404, 412, 413, 415]
+            )
+
     #################################################
     ## Individual file protocol operations
     #################################################
@@ -1053,3 +1074,24 @@ class SWORD3Client(object):
                        error_doc=error_doc,
                        request_url=request_url
         )
+
+    #################################################
+    ## Experiment, ingore for now
+    #################################################
+
+    # Could put this in sword common
+    CODES = {
+        ("put", "object_url") : {"success" : [200, 202], "error" : [400, 401, 403]}
+    }
+
+    def _sword(self, url_or_obj, url_type, method, payload, request_generator, response_wrapper, request_context):
+        url = self._get_url(url_or_obj, url_type)
+
+        body_bytes_or_stream, headers = request_generator(payload)
+        resp = getattr(self._http, method)(url, body_bytes_or_stream, headers)
+
+        codes = SWORD3Client.CODES.get((method, url_type))
+        if resp.status_code in codes["success"]:
+            return response_wrapper(resp)
+        else:
+            self._raise_for_status_code(resp, url, expected=codes["error"], request_context=request_context)
