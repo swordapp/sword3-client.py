@@ -854,6 +854,24 @@ class SWORD3Client(object):
                 resp, fileset_url, [400, 401, 403, 404, 405, 412, 413]
             )
 
+    def replace_fileset_with_temporary_file(self,
+            status_or_fileset_url: typing.Union[StatusDocument, str],
+            temporary_url: str,
+            filename: str,
+            content_type: str,
+            content_length: int = None,
+            digest: typing.Dict[str, str] = None
+    ) -> SWORDResponse:
+        br = ByReference()
+        br.add_file(temporary_url,
+                    filename,
+                    content_type,
+                    True,
+                    content_length=content_length,
+                    digest=digest
+                    )
+        return self.replace_fileset_by_reference(status_or_fileset_url, br)
+
     ###########################################################
     ## Segmented upload operations
     ###########################################################

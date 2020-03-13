@@ -105,3 +105,13 @@ class TestSegmented(TestCase):
             dr = client.replace_file_with_temporary_file(FILE_URL, TEMP_URL, "test.zip", "application/octet-stream")
         except SeamlessException as e:
             print(e.message)
+
+    def test_08_replace_fileset_with_temporary_file(self):
+        FILESET_URL = "http://example.com/object/1/files"
+        TEMP_URL = "http://example.com/temporary"
+
+        client = SWORD3Client(http=MockHttpLayer(204, None, None))
+        try:
+            dr = client.replace_fileset_with_temporary_file(FILESET_URL, TEMP_URL, "test.zip", "application/octet-stream")
+        except SeamlessException as e:
+            print(e.message)

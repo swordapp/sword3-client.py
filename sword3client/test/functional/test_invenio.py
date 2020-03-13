@@ -1407,3 +1407,129 @@ class TestInvenio(TestCase):
         brl = ods[0]
         assert "byReference" in brl
         assert brl["byReference"] == temporary_url
+
+    def test_18_replace_fileset_with_temporary_file(self):
+        # set up by preparing our binary file to upload
+        bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
+        d = paths.sha256(bag)
+        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
+        file_size = os.path.getsize(bag)
+
+
+        # 1. Create the object with a binary stream
+        bytes = b"this is a random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {constants.DIGEST_SHA_256: d.digest()}
+        stream = BytesIO(bytes)
+
+        client = SWORD3Client(
+            HTTP_FACTORY.create_object_with_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.REL_ORIGINAL_DEPOSIT],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                ]
+            )
+        )
+        dr = client.create_object_with_binary(
+            SERVICE_URL,
+            stream,
+            "test.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+        )
+
+        # 2. add a second binary stream, so there are a couple of files in the fileset
+        bytes = b"this is another random stream of bytes"
+        content_length = len(bytes)
+        d = hashlib.sha256(bytes)
+        digest = {constants.DIGEST_SHA_256: d.digest()}
+        stream = BytesIO(bytes)
+
+        client = SWORD3Client(
+            HTTP_FACTORY.add_binary(
+                links=[
+                    {
+                        "@id": "http://example.com/object/10/test.bin",
+                        "rel": [constants.Rel.OriginalDeposit, constants.Rel.FileSetFile],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    },
+                    {
+                        "@id": "http://example.com/object/10/test2.bin",
+                        "rel": [constants.Rel.OriginalDeposit, constants.Rel.FileSetFile],
+                        "contentType": "text/plain",
+                        "packaging": "http://purl.org/net/sword/3.0/package/Binary",
+                    }
+                ]
+            )
+        )
+        dr2 = client.add_binary(
+            dr.status_document,
+            stream,
+            "test2.bin",
+            digest,
+            content_length,
+            content_type="text/plain",
+            in_progress=True,
+        )
+
+        status = dr2.status_document
+        ods = status.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 2
+
+        # 3. Obtain the service document, which is where we will find a reference to the staging endpoint
+        client = SWORD3Client(HTTP_FACTORY.get_service())
+        sd = client.get_service(SERVICE_URL)
+
+        # 4. Initialise a segmented upload on the staging endpoint with the parameters derived from our test file
+        segment_count = 5
+        segment_size = math.ceil(file_size / segment_count)
+
+        client.set_http_layer(HTTP_FACTORY.initialise_segmented_upload())
+        resp = client.initialise_segmented_upload(
+            sd,
+            assembled_size=file_size,
+            segment_count=segment_count,
+            segment_size=segment_size,
+            digest=digest
+        )
+        temporary_url = resp.location
+
+        # 5. Upload all of the file segments
+        client.set_http_layer(HTTP_FACTORY.upload_file_segment())
+        with open(bag, "rb") as f:
+            for i in range(segment_count):
+                segment = f.read(segment_size)
+                stream = BytesIO(segment)
+                client.upload_file_segment(temporary_url, stream, i)
+
+        # 6. Replace the current fileset with the temporary file
+        client.set_http_layer(HTTP_FACTORY.replace_fileset_with_temporary_file())
+        resp = client.replace_fileset_with_temporary_file(status, temporary_url, "test3.zip",
+                                                       "application/octet-stream")
+        assert resp.status_code == 204
+
+        # 6. Retrieve the updated status document
+        client.set_http_layer(HTTP_FACTORY.get_object(links=[
+            {
+                "@id": "http://example.com/object/1/temp.zip",
+                "rel": [constants.Rel.OriginalDeposit, constants.Rel.ByReferenceDeposit,
+                        constants.Rel.FileSetFile],
+                "byReference": temporary_url,
+                "status": constants.FileState.Pending
+            }
+        ]))
+        status2 = client.get_object(status)
+
+        # 7. Check the status document for the replacement file
+        ods = status2.list_links(rels=[constants.Rel.OriginalDeposit])
+        assert len(ods) == 1
+        brl = ods[0]
+        assert "byReference" in brl
+        assert brl["byReference"] == temporary_url
