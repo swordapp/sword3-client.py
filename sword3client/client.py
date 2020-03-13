@@ -731,6 +731,27 @@ class SWORD3Client(object):
                 resp, object_url, [400, 401, 403, 404, 405, 412, 413, 415]
             )
 
+    def replace_object_with_temporary_file(self,
+            status_or_object_url: typing.Union[StatusDocument, str],
+            temporary_url: str,
+            filename: str,
+            content_type: str,
+            content_length: int = None,
+            packaging: str = None,
+            digest: typing.Dict[str, str] = None,
+            in_progress: bool = False,
+    ) -> SWORDResponse:
+        br = ByReference()
+        br.add_file(temporary_url,
+                    filename,
+                    content_type,
+                    True,
+                    content_length=content_length,
+                    packaging=packaging,
+                    digest=digest
+                    )
+        return self.replace_object_by_reference(status_or_object_url, br, in_progress=in_progress)
+
     #################################################
     ## Individual file protocol operations
     #################################################
