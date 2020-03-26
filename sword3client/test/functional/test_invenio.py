@@ -1412,7 +1412,7 @@ class TestInvenio(TestCase):
         # set up by preparing our binary file to upload
         bag = paths.rel2abs(__file__, "..", "resources", "SWORDBagIt.zip")
         d = paths.sha256(bag)
-        digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
+        bag_digest = {constants.DIGEST_SHA_256: base64.b64encode(d.digest())}
         file_size = os.path.getsize(bag)
 
 
@@ -1497,7 +1497,7 @@ class TestInvenio(TestCase):
             assembled_size=file_size,
             segment_count=segment_count,
             segment_size=segment_size,
-            digest=digest
+            digest=bag_digest
         )
         temporary_url = resp.location
 
@@ -1786,17 +1786,6 @@ class TestInvenio(TestCase):
         # 8. upload the file, asserting that it's a package
         client.set_http_layer(HTTP_FACTORY.replace_object_with_temporary_file(links=[
             {
-                "status": constants.FileState.Pending,
-                "eTag": "1",
-                "@id": "http://www.myorg.ac.uk/sword3/object1/reference.zip",
-                "byReference": temporary_url,
-                "rel": [
-                    constants.Rel.ByReferenceDeposit,
-                    constants.Rel.OriginalDeposit,
-                    constants.Rel.FileSetFile
-                ]
-            },
-            {
                 "@id": "http://example.com/object/1/temp2.zip",
                 "rel": [constants.Rel.OriginalDeposit, constants.Rel.ByReferenceDeposit, constants.Rel.FileSetFile],
                 "byReference": temporary_url2,
@@ -1810,7 +1799,7 @@ class TestInvenio(TestCase):
         assert dr4.status_code == 200
         status2 = dr4.status_document
         ods = status2.list_links(rels=[constants.Rel.OriginalDeposit])
-        assert len(ods) == 2
+        assert len(ods) == 1
         trip_wire = False
         for brl in ods:
             if "packaging" in brl:
