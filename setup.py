@@ -14,7 +14,7 @@ setup(
     license="Apache2",
     classifiers=[],
     extras_require={
-        'docs': ['Sphinx'],
+        'docs': ['Sphinx', 'sphinx-autodoc-annotation'],
         'test': ['nose'],
     },
 )
