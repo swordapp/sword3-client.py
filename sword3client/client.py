@@ -22,6 +22,7 @@ import contextlib
 
 
 class SWORD3Client(object):
+    """The SWORDv3 client"""
     def __init__(self, http=None):
         self._http = http if http is not None else RequestsHttpLayer()
 
