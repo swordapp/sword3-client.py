@@ -1,6 +1,0 @@
-nose==1.3.7
-requests
-
--e git+https://github.com/swordapp/sword3-common.py.git@7c1d7b68c2d1a95971c2722d462fa7269e0692b9#egg=sword3common
-
--e .

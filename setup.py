@@ -4,7 +4,9 @@ setup(
     name="sword3client",
     version="0.0.1",
     packages=find_packages(),
-    install_requires=[],
+    install_requires=[
+        'sword3common',
+    ],
     url="http://cottagelabs.com/",
     author="Cottage Labs",
     author_email="richard@cottagelabs.com",
@@ -13,5 +15,6 @@ setup(
     classifiers=[],
     extras_require={
         'docs': ['Sphinx'],
+        'test': ['nose'],
     },
 )
