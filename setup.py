@@ -11,4 +11,7 @@ setup(
     description="SWORDv3 Client Library",
     license="Apache2",
     classifiers=[],
+    extras_require={
+        'docs': ['Sphinx'],
+    },
 )
