@@ -1,3 +1,4 @@
+from sword3client.connection import HttpLayer
 from sword3client.connection.connection_requests import RequestsHttpLayer
 from sword3client import SWORDResponse
 
@@ -23,7 +24,7 @@ import contextlib
 
 class SWORD3Client(object):
     """The SWORDv3 client"""
-    def __init__(self, http=None):
+    def __init__(self, http: HttpLayer=None):
         self._http = http if http is not None else RequestsHttpLayer()
 
     def set_http_layer(self, http):
