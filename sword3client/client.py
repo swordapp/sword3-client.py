@@ -31,6 +31,9 @@ class SWORD3Client(object):
         self._http = http
 
     def get_service(self, service_url: str) -> ServiceDocument:
+        """Retrieves the SWORD service document for a given URL.
+
+        :raises: SwordException"""
         resp = self._http.get(service_url)
         if resp.status_code == 200:
             data = json.loads(resp.body)
