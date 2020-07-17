@@ -12,6 +12,7 @@ Welcome to SWORDv3 client library's documentation!
 
    getting-started
    api
+   references
 
 
 Indices and tables
