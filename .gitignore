@@ -51,3 +51,5 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+# Sphinx build directory
+docs/_build
