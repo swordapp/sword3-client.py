@@ -23,11 +23,21 @@ import contextlib
 
 
 class SWORD3Client(object):
-    """The SWORDv3 client"""
+    """The SWORDv3 client.  You can carry out all protocol operations against the server through this class"""
+
     def __init__(self, http: HttpLayer=None):
+        """
+        Construct a new instance of the client.
+
+        Optionally, you can provide your own HTTP layer implementation, which conforms to sword3client.connection.connection.HTTPLayer.
+        If not provided, the default one using requests will be used.
+        """
         self._http = http if http is not None else RequestsHttpLayer()
 
     def set_http_layer(self, http):
+        """
+        Set the HTTP layer after construction.  Can be switched at any time during operation.
+        """
         self._http = http
 
     def get_service(self, service_url: str) -> ServiceDocument:
@@ -53,7 +63,9 @@ class SWORD3Client(object):
         metadata_format: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """
+        Create a new object using only metadata
+        """
         # get the service url.  The first argument may be the URL or the ServiceDocument
         service_url = self._get_url(service, "service_url")
         body_bytes, headers = self._metadata_deposit_properties(
@@ -76,7 +88,8 @@ class SWORD3Client(object):
         metadata_format: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Replace the entirity of the object with just new metadata.  All other content
+        contained in the object may be lost."""
         object_url = self._get_url(status_or_object_url, "object_url")
         body_bytes, headers = self._metadata_deposit_properties(
             metadata, metadata_format, digest, in_progress=in_progress
@@ -93,7 +106,7 @@ class SWORD3Client(object):
     def get_metadata(
         self, status_or_metadata_url: typing.Union[StatusDocument, str]
     ) -> Metadata:
-
+        """Retrieve the default sword metadata for this object"""
         metadata_url = self._get_url(status_or_metadata_url, "metadata_url")
         resp = self._http.get(metadata_url)
 
@@ -119,7 +132,7 @@ class SWORD3Client(object):
         metadata_format: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Append the supplied metadata to the existing metadata on the object"""
         object_url = self._get_url(status_or_object_url, "object_url")
         body_bytes, headers = self._metadata_deposit_properties(
             metadata, metadata_format, digest, in_progress=in_progress,
@@ -140,7 +153,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str] = None,
         metadata_format: str = None,
     ) -> SWORDResponse:
-
+        """Replace all of the current metadata on the object with the new metadata"""
         metadata_url = self._get_url(status_or_metadata_url, "metadata_url")
         body_bytes, headers = self._metadata_deposit_properties(
             metadata, metadata_format, digest
@@ -157,7 +170,7 @@ class SWORD3Client(object):
     def delete_metadata(
         self, status_or_metadata_url: typing.Union[ServiceDocument, str]
     ) -> SWORDResponse:
-
+        """Delete all the metadata from the object"""
         metadata_url = self._get_url(status_or_metadata_url, "metadata_url")
         resp = self._http.delete(metadata_url)
 
@@ -210,7 +223,7 @@ class SWORD3Client(object):
         content_type: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Create an object with a plain binary file (not a package)"""
         return self._generic_create_binary(
             service,
             binary_stream,
@@ -233,6 +246,7 @@ class SWORD3Client(object):
         packaging: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
+        """Create an object using a package of files and metadata"""
         return self._generic_create_binary(
             service,
             binary_stream,
@@ -254,7 +268,7 @@ class SWORD3Client(object):
         content_type: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Add a plain binary file to the object"""
         return self._generic_add_binary(
             status_or_object_url,
             binary_stream,
@@ -277,7 +291,7 @@ class SWORD3Client(object):
         packaging: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """add a package of files and metadata to the object"""
         return self._generic_add_binary(
             status_or_object_url,
             binary_stream,
@@ -299,7 +313,8 @@ class SWORD3Client(object):
         content_type: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Replace the entire object with a single binary file (not a package).  All other content
+        in the object may be lost"""
         return self._generic_replace_binary(
             status_or_object_url,
             binary_stream,
@@ -322,7 +337,8 @@ class SWORD3Client(object):
         packaging: str = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Replace the entire object with a single package of files and metadata.  All other content in the
+        object may be lost"""
         return self._generic_replace_binary(
             status_or_object_url,
             binary_stream,
@@ -468,7 +484,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str] = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Create a new object with one or more By-Reference files"""
         # get the service url.  The first argument may be the URL or the ServiceDocument
         service_url = self._get_url(service, "service_url")
         body_bytes, headers = self._by_reference_deposit_properties(
@@ -489,7 +505,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str] = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Append one or more files to the object By-Reference"""
         object_url = self._get_url(status_or_object_url, "object_url")
         body_bytes, headers = self._by_reference_deposit_properties(
             by_reference, digest, in_progress=in_progress
@@ -539,6 +555,7 @@ class SWORD3Client(object):
             metadata_format: str = None,
             in_progress: bool = False,
     ) -> SWORDResponse:
+        """Create a new object with default sword metadata and one or more By-Reference files"""
         # get the service url.  The first argument may be the URL or the ServiceDocument
         service_url = self._get_url(service, "service_url")
         body_bytes, headers = self._mdbr_deposit_properties(
@@ -560,6 +577,7 @@ class SWORD3Client(object):
             metadata_format: str = None,
             in_progress: bool = False,
     ) -> SWORDResponse:
+        """Append both metadata and one or more By-Reference files to the existing metadata and file content of the object"""
         object_url = self._get_url(status_or_object_url, "object_url")
         body_bytes, headers = self._mdbr_deposit_properties(
             metadata_and_by_reference, digest,  metadata_format, in_progress=in_progress,
@@ -619,7 +637,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str] = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Create an object using a Temporary URL obtained via Segmented Upload"""
         br = ByReference()
         br.add_file(temporary_url,
                     filename,
@@ -642,7 +660,7 @@ class SWORD3Client(object):
         digest: typing.Dict[str, str] = None,
         in_progress: bool = False,
     ) -> SWORDResponse:
-
+        """Append to the object a file at a Temporary-URL obtained via Segmented Upload"""
         br = ByReference()
         br.add_file(temporary_url,
                     filename,
@@ -661,6 +679,7 @@ class SWORD3Client(object):
     def get_object(
         self, sword_object: typing.Union[StatusDocument, str]
     ) -> StatusDocument:
+        """"Retrieve a current-state representation of the object as a Status Document"""
         # get the status url.  The first argument may be the URL or the StatusDocument
         object_url = self._get_url(sword_object, "object_url")
         resp = self._http.get(object_url)
@@ -683,7 +702,7 @@ class SWORD3Client(object):
     def delete_object(
         self, sword_object: typing.Union[StatusDocument, str]
     ) -> SWORDResponse:
-
+        """Delete the entire object"""
         object_url = self._get_url(sword_object, "object_url")
         resp = self._http.delete(object_url)
 
@@ -723,6 +742,8 @@ class SWORD3Client(object):
             metadata_format: str = None,
             in_progress: bool = False,
     ) -> SWORDResponse:
+        """Replace the entire object with the metadata and one or more By-Reference files.  All other content of the
+        object may be lost"""
         object_url = self._get_url(status_or_object_url, "object_url")
         body_bytes, headers = self._mdbr_deposit_properties(
             metadata_and_by_reference, digest, metadata_format, in_progress=in_progress
@@ -746,6 +767,8 @@ class SWORD3Client(object):
             digest: typing.Dict[str, str] = None,
             in_progress: bool = False,
     ) -> SWORDResponse:
+        """Replace the entire object with a file at a Temporary URL obtained via Segmented Upload.  All other content
+        on the object may be lost"""
         br = ByReference()
         br.add_file(temporary_url,
                     filename,
@@ -762,6 +785,7 @@ class SWORD3Client(object):
     #################################################
 
     def get_file(self, file_url: str):
+        """Obtain a stream-like object to access the content of a file at the given file URL"""
         @contextlib.contextmanager
         def file_getter():
             resp = self._http.get(file_url, stream=True)
@@ -793,7 +817,7 @@ class SWORD3Client(object):
         filename: str = "untitled",  # FIXME: an issue has been raised for this - what happens if no filename is provided
         content_length: int = None,
     ):
-
+        """Replace a single binary file with a new binary file"""
         headers = self._binary_deposit_properties(
             content_type,
             constants.PACKAGE_BINARY,
@@ -812,6 +836,7 @@ class SWORD3Client(object):
             )
 
     def delete_file(self, file_url: str):
+        """Delete a single binary file"""
         resp = self._http.delete(file_url)
 
         if resp.status_code == 204:
@@ -825,6 +850,7 @@ class SWORD3Client(object):
             by_reference: ByReference,
             digest: typing.Dict[str, str] = None
     ):
+        """Replace a single binary file with a single By-Reference file"""
         body_bytes, headers = self._by_reference_deposit_properties(
             by_reference,
             digest
@@ -848,7 +874,7 @@ class SWORD3Client(object):
             content_length: int = None,
             digest: typing.Dict[str, str] = None
     ) -> SWORDResponse:
-
+        """Replace a single binary file with a file at a Temporary URL obtained via Staged Upload"""
         br = ByReference()
         br.add_file(temporary_url,
                     filename,
@@ -872,6 +898,8 @@ class SWORD3Client(object):
         content_length: int = None,
         content_type: str = None,
     ) -> SWORDResponse:
+        """Replace the entire FileSet with a single binary file.  All other files in the fileset may be lost (not all files
+        the server holds may be in the fileset).  Metadata will persist."""
         fileset_url = self._get_url(status_or_fileset_url, "fileset_url")
         headers = self._binary_deposit_properties(
             content_type,
@@ -892,7 +920,8 @@ class SWORD3Client(object):
     def delete_fileset(
         self, status_or_fileset_url: typing.Union[StatusDocument, str]
     ) -> SWORDResponse:
-
+        """Delete all of the files in the FileSet.  All other files in the fileset may be lost (not all files
+        the server holds may be in the fileset).  Metadata will persist."""
         fileset_url = self._get_url(status_or_fileset_url, "fileset_url")
         resp = self._http.delete(fileset_url)
 
@@ -908,6 +937,8 @@ class SWORD3Client(object):
         by_reference: ByReference,
         digest: typing.Dict[str, str] = None
     ) -> SWORDResponse:
+        """Replace the entire FileSet with one or more By-Reference files.  All other files in the fileset may be lost (not all files
+        the server holds may be in the fileset).  Metadata will persist."""
         fileset_url = self._get_url(status_or_fileset_url, "fileset_url")
         body_bytes, headers = self._by_reference_deposit_properties(
             by_reference,
@@ -930,6 +961,9 @@ class SWORD3Client(object):
             content_length: int = None,
             digest: typing.Dict[str, str] = None
     ) -> SWORDResponse:
+        """Replace the entire FileSet with a single file at a Temporary URL obtained by Segmented Upload.
+        All other files in the fileset may be lost (not all files
+        the server holds may be in the fileset).  Metadata will persist."""
         br = ByReference()
         br.add_file(temporary_url,
                     filename,
@@ -951,6 +985,7 @@ class SWORD3Client(object):
                                     segment_size: int,
                                     digest: typing.Dict[str, str] = None
                                     ) -> SWORDResponse:
+        """Initialise the process of uploading a large file via segmented upload"""
         staging_url = self._get_url(service, "staging_url")
 
         digest_val = None
@@ -985,7 +1020,7 @@ class SWORD3Client(object):
                             digest: typing.Dict[str, str] = None,
                             content_length: int = None
                             ) -> SWORDResponse:
-
+        """Upload a single segment of a large file to the Temporary URL"""
         disp = ContentDisposition.upload_file_segment(segment_number)
 
         headers = {
@@ -1010,6 +1045,7 @@ class SWORD3Client(object):
             )
 
     def abort_segmented_upload(self, temporary_url: str) -> SWORDResponse:
+        """Abort the segmented upload.  After this you will need to initialise again if you wish to try again"""
         resp = self._http.delete(temporary_url)
 
         if resp.status_code == 204:
@@ -1022,6 +1058,7 @@ class SWORD3Client(object):
     def segmented_upload_status(self,
                                      temporary_url: str
                                      ) -> SegmentedFileUpload:
+        """Get a status report on the state of your segmented upload"""
         resp = self._http.get(temporary_url)
 
         if resp.status_code == 200:
