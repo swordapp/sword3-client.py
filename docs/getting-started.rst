@@ -13,6 +13,7 @@ Making a client
 Create a new instance of the client
 
 .. code:: python
+
     from sword3client import SWORD3Client
     client = SWORD3Client()
 
@@ -23,6 +24,7 @@ Create an object with metadata only
 -----------------------------------
 
 .. code:: python
+
     from sword3common import Metadata
     from sword3client import SWORD3Client
     client = SWORD3Client()
@@ -37,6 +39,7 @@ Create an object with a package
 -------------------------------
 
 .. code:: python
+
     from sword3common import constants
     from sword3client import SWORD3Client
     client = SWORD3Client()
@@ -59,6 +62,7 @@ Retrieve the Object's status
 ----------------------------
 
 .. code:: python
+
     from sword3client import SWORD3Client
     client = SWORD3Client()
 
@@ -70,6 +74,7 @@ Append a binary file
 --------------------
 
 .. code:: python
+
     from sword3client import SWORD3Client
     client = SWORD3Client()
 
@@ -84,6 +89,7 @@ Delete the object
 -----------------
 
 .. code:: python
+
     from sword3client import SWORD3Client
     client = SWORD3Client()
 
@@ -95,6 +101,7 @@ Create an object by reference
 -----------------------------
 
 .. code:: python
+
     from sword3common import ByReference
     from sword3client import SWORD3Client
     client = SWORD3Client()
@@ -113,6 +120,7 @@ Upload a large file by segments
 -------------------------------
 
 .. code:: python
+
     from io import BytesIO
     from sword3common import constants
     from sword3client import SWORD3Client
@@ -149,6 +157,7 @@ Retrieve information about a segmented upload
 ---------------------------------------------
 
 .. code:: python
+
     from sword3client import SWORD3Client
     client = SWORD3Client()
 
@@ -167,6 +176,7 @@ Deposit a file uploaded by segments
 -----------------------------------
 
 .. code:: python
+
     from sword3client import SWORD3Client
     client = SWORD3Client()
 
