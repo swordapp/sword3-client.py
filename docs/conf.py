@@ -32,6 +32,7 @@ release = '0.1'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.intersphinx',
     'sphinx_autodoc_annotation',
 ]
 
@@ -58,3 +59,11 @@ html_theme = 'alabaster'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+# -- Intersphinx -------------------------------------------------------------
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'sword3common': ('https://sword3-commonpy.readthedocs.io/en/latest', None),
+}
